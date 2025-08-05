@@ -37,10 +37,10 @@ class CustomerProcessor {
                     break;
             }
 
-            // Save context after processing
-            if (result.aiResponse) {
+            // Save context after processing, using the raw message for history
+            if (result.rawResponse) {
                 await this.databaseService.addMessageToHistory(senderNumber, 'user', messageText);
-                await this.databaseService.addMessageToHistory(senderNumber, 'assistant', result.aiResponse);
+                await this.databaseService.addMessageToHistory(senderNumber, 'assistant', result.rawResponse);
             }
 
             return result;
@@ -70,7 +70,7 @@ class CustomerProcessor {
                 await this.evolutionService.sendMessage(senderNumber, responseMessage);
                 
                 this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R$${item.price}`);
-                return { success: true, action: 'price_found', item, aiResponse: responseMessage };
+                return { success: true, action: 'price_found', item, rawResponse: responseMessage };
             } else {
                 const similarItems = await this.databaseService.findItems(extractedItem);
                 
@@ -84,7 +84,7 @@ class CustomerProcessor {
                     await this.evolutionService.sendMessage(senderNumber, responseMessage);
                     
                     this.logger.log(`Similar items found for ${senderNumber}: ${similarItems.length} items`);
-                    return { success: true, action: 'similar_items_found', items: similarItems, aiResponse: responseMessage };
+                    return { success: true, action: 'similar_items_found', items: similarItems, rawResponse: responseMessage };
                 } else {
                     return await this.handleGeneralQuery(messageText, senderNumber, history);
                 }
@@ -134,7 +134,7 @@ class CustomerProcessor {
 
             this.logger.log(`Greeting sent to ${senderNumber}`);
             
-            return { success: true, action: 'greeting_sent', aiResponse: greetingMessage };
+            return { success: true, action: 'greeting_sent', rawResponse: greetingMessage };
 
         } catch (error) {
             this.logger.error('Error handling greeting:', error);
@@ -153,13 +153,13 @@ class CustomerProcessor {
             });
 
             if (response.success) {
-                await this.evolutionService.sendMessage(senderNumber, response.message);
+                await this.evolutionService.sendMessage(senderNumber, response.fullMessage);
                 this.logger.log(`General query processed for ${senderNumber}`);
                 
                 return { 
                     success: true, 
                     action: 'general_response',
-                    aiResponse: response.message 
+                    rawResponse: response.rawMessage 
                 };
             } else {
                 const fallbackMessage = `Desculpe, não consegui processar sua mensagem no momento. 😔\n\nVocê pode:\n• Perguntar sobre preços de peças específicas\n• Solicitar atendimento humano digitando "quero falar com atendente"\n\nComo posso ajudar? 😊`;
@@ -193,7 +193,8 @@ class CustomerProcessor {
             
             this.logger.log(`Admin notified of new customer: ${senderNumber}`);
             
-        } catch (error) {
+        }
+        catch (error) {
             this.logger.error('Error notifying admin of new customer:', error);
         }
     }

@@ -4,7 +4,7 @@ const path = require('path');
 class DatabaseService {
     constructor() {
         this.dbPath = path.join(__dirname, '../../database.json');
-        this.historyLimit = 10; // Max number of messages to keep in history
+        this.historyLimit = 15; // Max number of messages to keep in history
     }
 
     async loadDatabase() {

@@ -53,11 +53,12 @@ Para falar com um atendente digite: *Atendente*`;
                 }
             });
 
-            const messageWithSignature = response.data.choices[0].message.content + this.signature;
+            const rawMessage = response.data.choices[0].message.content;
 
             return {
                 success: true,
-                message: messageWithSignature,
+                rawMessage: rawMessage,
+                fullMessage: rawMessage + this.signature,
                 usage: response.data.usage
             };
 
