@@ -23,6 +23,12 @@ class AdminProcessor {
                     return await this.handleRemoveItem(intent.params, senderNumber);
                 case 'list':
                     return await this.handleListItems(senderNumber);
+                case 'pause':
+                    return await this.handlePauseAI(intent.params, senderNumber);
+                case 'resume':
+                    return await this.handleResumeAI(intent.params, senderNumber);
+                case 'list_paused':
+                    return await this.handleListPaused(senderNumber);
                 case 'help':
                     return await this.handleAdminHelp(senderNumber);
                 default:
@@ -56,6 +62,20 @@ class AdminProcessor {
         
         if (text.includes('listar') || text.includes('list') || text === 'itens') {
             return { command: 'list', params: {} };
+        }
+
+        if (text.startsWith('pausar ia ')) {
+            const match = messageText.match(/pausar ia (\d+)/i);
+            if (match) return { command: 'pause', params: { number: match[1] } };
+        }
+
+        if (text.startsWith('reativar ia ')) {
+            const match = messageText.match(/reativar ia (\d+)/i);
+            if (match) return { command: 'resume', params: { number: match[1] } };
+        }
+
+        if (text === 'ver pausados') {
+            return { command: 'list_paused', params: {} };
         }
         
         if (text.includes('ajuda') || text.includes('help') || text.includes('comandos')) {
@@ -128,7 +148,7 @@ class AdminProcessor {
         
         await this.evolutionService.sendMessage(senderNumber, result.message);
         
-        this.logger.log(`Admin ${senderNumber} added item: ${params.itemName} - R$${params.price} - ${result.success ? 'Success' : 'Failed'}`);
+        this.logger.log(`Admin ${senderNumber} added item: ${params.itemName} - R${params.price} - ${result.success ? 'Success' : 'Failed'}`);
         
         return { success: result.success, action: 'add', result };
     }
@@ -146,7 +166,7 @@ class AdminProcessor {
         
         await this.evolutionService.sendMessage(senderNumber, result.message);
         
-        this.logger.log(`Admin ${senderNumber} edited item: ${params.itemName} - R$${params.price} - ${result.success ? 'Success' : 'Failed'}`);
+        this.logger.log(`Admin ${senderNumber} edited item: ${params.itemName} - R${params.price} - ${result.success ? 'Success' : 'Failed'}`);
         
         return { success: result.success, action: 'edit', result };
     }
@@ -179,28 +199,45 @@ class AdminProcessor {
         return { success: true, action: 'list' };
     }
 
+    async handlePauseAI(params, senderNumber) {
+        if (!params.number) {
+            await this.evolutionService.sendMessage(senderNumber, 'Formato inválido. Use: pausar ia [numero]');
+            return { success: false, error: 'Invalid pause format' };
+        }
+        await this.databaseService.pauseAI(params.number, 9999); // Pause indefinitely
+        await this.evolutionService.sendMessage(senderNumber, `IA pausada para o número ${params.number}.`);
+        this.logger.log(`Admin ${senderNumber} paused AI for ${params.number}`);
+        return { success: true, action: 'pause' };
+    }
+
+    async handleResumeAI(params, senderNumber) {
+        if (!params.number) {
+            await this.evolutionService.sendMessage(senderNumber, 'Formato inválido. Use: reativar ia [numero]');
+            return { success: false, error: 'Invalid resume format' };
+        }
+        await this.databaseService.resumeAI(params.number);
+        await this.evolutionService.sendMessage(senderNumber, `IA reativada para o número ${params.number}.`);
+        this.logger.log(`Admin ${senderNumber} resumed AI for ${params.number}`);
+        return { success: true, action: 'resume' };
+    }
+
+    async handleListPaused(senderNumber) {
+        const pausedNumbers = await this.databaseService.getPausedNumbers();
+        let message = '*Números com IA pausada:*\n\n';
+        if (pausedNumbers.length === 0) {
+            message = 'Nenhum número com a IA pausada no momento.';
+        } else {
+            pausedNumbers.forEach(p => {
+                message += `- ${p.number} (pausado até: ${new Date(p.pausedUntil).toLocaleString('pt-BR')})\n`;
+            });
+        }
+        await this.evolutionService.sendMessage(senderNumber, message);
+        this.logger.log(`Admin ${senderNumber} requested paused numbers list`);
+        return { success: true, action: 'list_paused' };
+    }
+
     async handleAdminHelp(senderNumber) {
-        const helpMessage = `*COMANDOS ADMINISTRATIVOS*
-
-📝 *Adicionar item:*
-Adicionar [nome] R$[preço]
-Ex: Adicionar Frontal A13 R$250
-
-✏️ *Editar preço:*
-Editar [nome] R$[novo preço]
-Ex: Editar Frontal A13 R$300
-
-🗑️ *Remover item:*
-Remover [nome do item]
-Ex: Remover Frontal A13
-
-📋 *Listar todos os itens:*
-Listar itens
-
-❓ *Ver esta ajuda:*
-Ajuda ou Help
-
-*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
+        const helpMessage = `*COMANDOS ADMINISTRATIVOS*\n\n📝 *Adicionar item:*\nAdicionar [nome] R$[preço]\nEx: Adicionar Frontal A13 R$250\n\n✏️ *Editar preço:*\nEditar [nome] R$[novo preço]\nEx: Editar Frontal A13 R$300\n\n🗑️ *Remover item:*\nRemover [nome do item]\nEx: Remover Frontal A13\n\n📋 *Listar todos os itens:*\nListar itens\n\n⏸️ *Pausar IA para um número:*\nPausar ia [número]\n\n▶️ *Reativar IA para um número:*\nReativar ia [número]\n\n📜 *Ver números com IA pausada:*\nVer pausados\n\n❓ *Ver esta ajuda:*\nAjuda ou Help\n\n*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
 
         await this.evolutionService.sendMessage(senderNumber, helpMessage);
         

@@ -9,17 +9,31 @@ class DatabaseService {
     async loadDatabase() {
         try {
             if (!await fs.exists(this.dbPath)) {
-                return { items: [], pausedNumbers: [] };
+                // If the file doesn't exist, create it with a default structure
+                const defaultDb = { items: [], pausedNumbers: [], globalPause: false };
+                await this.saveDatabase(defaultDb);
+                return defaultDb;
             }
+            
             const data = await fs.readJson(this.dbPath);
-            // Handle old format (array of items)
+
+            // Handle old format (just an array of items)
             if (Array.isArray(data)) {
-                return { items: data, pausedNumbers: [] };
+                return { items: data, pausedNumbers: [], globalPause: false };
             }
-            return data;
+
+            // Ensure globalPause property exists
+            return {
+                items: [],
+                pausedNumbers: [],
+                globalPause: false,
+                ...data,
+            };
+
         } catch (error) {
             console.error('Error loading database:', error);
-            return { items: [], pausedNumbers: [] };
+            // Return a default structure in case of any error
+            return { items: [], pausedNumbers: [], globalPause: false };
         }
     }
 
@@ -75,7 +89,7 @@ class DatabaseService {
         if (saved) {
             return { 
                 success: true, 
-                message: `Item '${itemName}' adicionado com sucesso por R${price}!`,
+                message: `Item '${itemName}' adicionado com sucesso por R$${price}!`,
                 item: newItem
             };
         } else {
@@ -101,7 +115,7 @@ class DatabaseService {
         if (saved) {
             return { 
                 success: true, 
-                message: `Preço do item '${itemName}' alterado de R${oldPrice} para R${newPrice}!`,
+                message: `Preço do item '${itemName}' alterado de R$${oldPrice} para R$${newPrice}!`,
                 item: db.items[itemIndex]
             };
         } else {
@@ -148,7 +162,7 @@ class DatabaseService {
 
         let message = 'Itens disponíveis:\n\n';
         db.items.forEach((item, index) => {
-            message += `${index + 1}. ${item.item}: R${item.price}\n`;
+            message += `${index + 1}. ${item.item}: R$${item.price}\n`;
         });
 
         return message;
@@ -156,14 +170,24 @@ class DatabaseService {
 
     async isPaused(phoneNumber) {
         const db = await this.loadDatabase();
+        
+        // Check for global pause first
+        if (db.globalPause) {
+            return true;
+        }
+
         const pausedInfo = db.pausedNumbers.find(p => p.number === phoneNumber);
         if (!pausedInfo) {
             return false;
         }
+
         const isStillPaused = new Date(pausedInfo.pausedUntil) > new Date();
         if (!isStillPaused) {
+            // Automatically remove expired pause
             await this.resumeAI(phoneNumber);
+            return false;
         }
+        
         return isStillPaused;
     }
 
@@ -191,6 +215,17 @@ class DatabaseService {
     async getPausedNumbers() {
         const db = await this.loadDatabase();
         return db.pausedNumbers;
+    }
+
+    async setGlobalPause(status) {
+        const db = await this.loadDatabase();
+        db.globalPause = status;
+        return await this.saveDatabase(db);
+    }
+
+    async isGlobalPaused() {
+        const db = await this.loadDatabase();
+        return db.globalPause;
     }
 }
 
