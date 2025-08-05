@@ -14,30 +14,49 @@ class AdminProcessor {
 
             const intent = await this.identifyAdminCommand(messageText);
             
+            let result;
             switch (intent.command) {
                 case 'add':
-                    return await this.handleAddItem(intent.params, senderNumber);
+                    result = await this.handleAddItem(intent.params, senderNumber);
+                    break;
                 case 'edit':
-                    return await this.handleEditItem(intent.params, senderNumber);
+                    result = await this.handleEditItem(intent.params, senderNumber);
+                    break;
                 case 'remove':
-                    return await this.handleRemoveItem(intent.params, senderNumber);
+                    result = await this.handleRemoveItem(intent.params, senderNumber);
+                    break;
                 case 'list':
-                    return await this.handleListItems(senderNumber);
+                    result = await this.handleListItems(senderNumber);
+                    break;
                 case 'pause':
-                    return await this.handlePauseAI(intent.params, senderNumber);
+                    result = await this.handlePauseAI(intent.params, senderNumber);
+                    break;
                 case 'resume':
-                    return await this.handleResumeAI(intent.params, senderNumber);
+                    result = await this.handleResumeAI(intent.params, senderNumber);
+                    break;
                 case 'list_paused':
-                    return await this.handleListPaused(senderNumber);
+                    result = await this.handleListPaused(senderNumber);
+                    break;
                 case 'pause_global':
-                    return await this.handlePauseGlobal(senderNumber);
+                    result = await this.handlePauseGlobal(senderNumber);
+                    break;
                 case 'resume_global':
-                    return await this.handleResumeGlobal(senderNumber);
+                    result = await this.handleResumeGlobal(senderNumber);
+                    break;
                 case 'help':
-                    return await this.handleAdminHelp(senderNumber);
+                    result = await this.handleAdminHelp(senderNumber);
+                    break;
                 default:
-                    return await this.handleRegularMessage(messageText, senderNumber);
+                    result = await this.handleRegularMessage(messageText, senderNumber);
+                    break;
             }
+
+            if (result.rawResponse) {
+                await this.databaseService.addMessageToHistory(senderNumber, 'user', messageText);
+                await this.databaseService.addMessageToHistory(senderNumber, 'assistant', result.rawResponse);
+            }
+
+            return result;
 
         } catch (error) {
             this.logger.error('Error processing admin message:', error);
@@ -277,22 +296,23 @@ class AdminProcessor {
 
     async handleRegularMessage(messageText, senderNumber) {
         const availableItems = await this.databaseService.getAllItems();
+        const history = await this.databaseService.getConversationHistory(senderNumber);
         
         const response = await this.openRouterService.generateResponse(messageText, {
-            userMessage: messageText,
             availableItems: availableItems,
-            isAdmin: true
+            isAdmin: true,
+            history: history
         });
 
         if (response.success) {
-            await this.evolutionService.sendMessage(senderNumber, response.message);
+            await this.evolutionService.sendMessage(senderNumber, response.fullMessage);
             this.logger.log(`Admin ${senderNumber} regular message processed successfully`);
+            return { success: true, action: 'regular_message', rawResponse: response.rawMessage };
         } else {
             await this.evolutionService.sendMessage(senderNumber, 'Desculpe, tive um problema técnico. Tente novamente.');
             this.logger.error(`Failed to process regular admin message from ${senderNumber}`);
+            return { success: false, action: 'regular_message_failed' };
         }
-
-        return { success: response.success, action: 'regular_message' };
     }
 }
 
