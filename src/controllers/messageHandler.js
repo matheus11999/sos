@@ -51,7 +51,7 @@ class MessageHandler {
             if (webhookData.event === 'messages.upsert') {
                 // Verificar se é mensagem de grupo - ignorar completamente
                 if (webhookData.data && webhookData.data.key && webhookData.data.key.remoteJid && webhookData.data.key.remoteJid.includes('@g.us')) {
-                    this.logger.log('Group message ignored:', webhookData.data.key.remoteJid);
+                    this.logger.logGroupIgnored(webhookData.data.key.remoteJid);
                     res.status(200).json({ status: 'success', message: 'Group message ignored' });
                     return;
                 }

@@ -4,7 +4,7 @@ class OpenRouterService {
     constructor() {
         this.apiKey = process.env.OPEN_ROUTER_API_KEY;
         this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-        this.model = 'zhipuai/glm-4.5-air-1m';
+        this.model = 'z-ai/glm-4.5-air:free';
     }
 
     async generateResponse(message, context = {}) {

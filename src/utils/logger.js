@@ -75,14 +75,9 @@ class Logger {
             userAgent: req.get('User-Agent')
         };
         
-        if (this.debugTerminal) {
-            console.log('\n🔵 === INCOMING REQUEST ===');
-            console.log(`📥 ${req.method} ${req.url}`);
-            console.log(`🕐 ${new Date().toISOString()}`);
-            if (req.body && Object.keys(req.body).length > 0) {
-                console.log('📄 Body:', JSON.stringify(req.body, null, 2));
-            }
-            console.log('========================\n');
+        // Debug simplificado - só mostrar endpoints importantes
+        if (this.debugTerminal && req.url === '/webhook') {
+            console.log(`\n📥 WEBHOOK ${new Date().toLocaleTimeString()}`);
         }
         
         this.log(`HTTP Request: ${req.method} ${req.url}`, requestData);
@@ -94,20 +89,26 @@ class Logger {
             responseTime: `${responseTime}ms`
         };
         
-        if (this.debugTerminal) {
-            console.log(`📤 Response: ${res.statusCode} (${responseTime}ms)\n`);
-        }
-        
+        // Não mostrar response no debug simplificado
         this.log(`HTTP Response: ${res.statusCode}`, responseData);
     }
 
     logWebhook(webhookData) {
         if (this.debugTerminal) {
-            console.log('\n🔔 === WEBHOOK RECEIVED ===');
-            console.log(`📨 Event: ${webhookData.event || 'unknown'}`);
-            console.log(`🕐 ${new Date().toISOString()}`);
-            console.log('📄 Data:', JSON.stringify(webhookData, null, 2));
-            console.log('=========================\n');
+            // Extrair informações essenciais
+            const remoteJid = webhookData.data?.key?.remoteJid || 'unknown';
+            const messageType = webhookData.data?.messageType || 'unknown';
+            const pushName = webhookData.data?.pushName || 'unknown';
+            
+            // Determinar tipo de chat
+            let chatType = '💬';
+            if (remoteJid.includes('@g.us')) {
+                chatType = '👥 GRUPO (IGNORADO)';
+            } else if (remoteJid.includes('@s.whatsapp.net')) {
+                chatType = '💬 DIRETO';
+            }
+            
+            console.log(`📨 ${chatType} | ${pushName} | ${messageType}`);
         }
         
         this.log('Webhook received', {
@@ -119,12 +120,11 @@ class Logger {
 
     logMessageProcessing(senderNumber, messageText, isAdmin, processingResult) {
         if (this.debugTerminal) {
-            console.log('\n💬 === MESSAGE PROCESSING ===');
-            console.log(`📱 From: ${senderNumber} ${isAdmin ? '(ADMIN)' : '(CLIENT)'}`);
-            console.log(`📝 Message: ${messageText}`);
-            console.log(`✅ Success: ${processingResult.success}`);
-            console.log(`🎯 Action: ${processingResult.action}`);
-            console.log('============================\n');
+            const userType = isAdmin ? '👨‍💼 ADMIN' : '👤 CLIENT';
+            const status = processingResult.success ? '✅' : '❌';
+            const shortMessage = messageText.length > 30 ? messageText.substring(0, 30) + '...' : messageText;
+            
+            console.log(`${userType} | ${senderNumber} | "${shortMessage}" | ${status} ${processingResult.action}`);
         }
         
         this.log('Message processed', {
@@ -146,7 +146,8 @@ class Logger {
 
     logAPICall(service, endpoint, success, responseTime) {
         if (this.debugTerminal) {
-            console.log(`🌐 API Call: ${service} - ${success ? '✅' : '❌'} (${responseTime}ms)`);
+            const status = success ? '✅' : '❌';
+            console.log(`🌐 ${service} | ${status} (${responseTime}ms)`);
         }
         
         this.log(`API Call: ${service}`, {
@@ -158,17 +159,23 @@ class Logger {
 
     logOutgoingMessage(phoneNumber, message, success) {
         if (this.debugTerminal) {
-            console.log('\n📤 === OUTGOING MESSAGE ===');
-            console.log(`📱 To: ${phoneNumber}`);
-            console.log(`📝 Message: ${message.substring(0, 200)}${message.length > 200 ? '...' : ''}`);
-            console.log(`✅ Sent: ${success ? 'YES' : 'NO'}`);
-            console.log('==========================\n');
+            const status = success ? '✅ SENT' : '❌ FAILED';
+            const shortMessage = message.length > 40 ? message.substring(0, 40) + '...' : message;
+            console.log(`📤 ${phoneNumber} | "${shortMessage}" | ${status}`);
         }
         
         this.log(`Message sent to ${phoneNumber}`, {
             messagePreview: message.substring(0, 100),
             success: success
         });
+    }
+
+    logGroupIgnored(groupId) {
+        if (this.debugTerminal) {
+            console.log(`🚫 GRUPO IGNORADO | ${groupId}`);
+        }
+        
+        this.log(`Group message ignored: ${groupId}`);
     }
 
     async clearOldLogs(daysToKeep = 30) {
