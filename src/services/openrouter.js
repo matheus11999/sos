@@ -94,11 +94,9 @@ INSTRUÇÕES IMPORTANTES:
             systemPrompt += `ITENS E PREÇOS DISPONÍVEIS:
 `;
             availableItems.forEach(item => {
-                systemPrompt += `- *${item.item}*: R${item.price}
-`;
+                systemPrompt += `- *${item.item}*: R$${item.price}\n`;
             });
-            systemPrompt += '
-';
+            systemPrompt += '\n';
         }
 
         if (isAdmin) {
