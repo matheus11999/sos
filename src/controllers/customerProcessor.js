@@ -18,12 +18,13 @@ class CustomerProcessor {
 
             this.logger.log(`Processing customer message from ${senderNumber}: ${messageText}`);
 
+            const history = await this.databaseService.getConversationHistory(senderNumber);
             const intent = await this.openRouterService.interpretIntent(messageText);
             
             let result;
             switch (intent) {
                 case 'price_query':
-                    result = await this.handlePriceQuery(messageText, senderNumber);
+                    result = await this.handlePriceQuery(messageText, senderNumber, history);
                     break;
                 case 'human_support':
                     result = await this.handleHumanSupportRequest(messageText, senderNumber);
@@ -32,7 +33,7 @@ class CustomerProcessor {
                     result = await this.handleGreeting(messageText, senderNumber);
                     break;
                 default:
-                    result = await this.handleGeneralQuery(messageText, senderNumber);
+                    result = await this.handleGeneralQuery(messageText, senderNumber, history);
                     break;
             }
 
@@ -54,13 +55,12 @@ class CustomerProcessor {
         }
     }
 
-    async handlePriceQuery(messageText, senderNumber) {
+    async handlePriceQuery(messageText, senderNumber, history) {
         try {
-            const history = await this.databaseService.getConversationHistory(senderNumber);
             const extractedItem = await this.openRouterService.extractItemFromQuery(messageText);
             
             if (extractedItem === 'não identificado') {
-                return await this.handleGeneralQuery(messageText, senderNumber);
+                return await this.handleGeneralQuery(messageText, senderNumber, history);
             }
 
             const item = await this.databaseService.findItem(extractedItem);
@@ -86,13 +86,13 @@ class CustomerProcessor {
                     this.logger.log(`Similar items found for ${senderNumber}: ${similarItems.length} items`);
                     return { success: true, action: 'similar_items_found', items: similarItems, aiResponse: responseMessage };
                 } else {
-                    return await this.handleGeneralQuery(messageText, senderNumber);
+                    return await this.handleGeneralQuery(messageText, senderNumber, history);
                 }
             }
 
         } catch (error) {
             this.logger.error('Error handling price query:', error);
-            return await this.handleGeneralQuery(messageText, senderNumber);
+            return await this.handleGeneralQuery(messageText, senderNumber, history);
         }
     }
 
@@ -138,14 +138,13 @@ class CustomerProcessor {
 
         } catch (error) {
             this.logger.error('Error handling greeting:', error);
-            return await this.handleGeneralQuery(messageText, senderNumber);
+            return await this.handleGeneralQuery(messageText, senderNumber, []);
         }
     }
 
-    async handleGeneralQuery(messageText, senderNumber) {
+    async handleGeneralQuery(messageText, senderNumber, history) {
         try {
             const availableItems = await this.databaseService.getAllItems();
-            const history = await this.databaseService.getConversationHistory(senderNumber);
             
             const response = await this.openRouterService.generateResponse(messageText, {
                 availableItems: availableItems,
