@@ -173,10 +173,26 @@ class EvolutionService {
     }
 
     extractPhoneNumber(from) {
-        return from.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        if (!from) return '';
+        return from.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@g.us', '');
     }
 
     isValidMessage(messageData) {
+        // Suporte ao novo formato do Evolution API 2
+        if (messageData && messageData.data && messageData.data.message) {
+            const message = messageData.data.message;
+            const remoteJid = messageData.data.key?.remoteJid;
+            
+            // Ignorar mensagens de grupo
+            if (remoteJid && remoteJid.includes('@g.us')) {
+                return false;
+            }
+            
+            // Verificar se é mensagem de texto
+            return !!(message.conversation || message.extendedTextMessage?.text);
+        }
+        
+        // Formato antigo (fallback)
         return messageData && 
                messageData.messages && 
                messageData.messages.length > 0 &&
@@ -186,12 +202,33 @@ class EvolutionService {
     }
 
     extractMessageText(messageData) {
-        const message = messageData.messages[0].message;
-        return message.conversation || message.extendedTextMessage?.text || '';
+        // Novo formato
+        if (messageData && messageData.data && messageData.data.message) {
+            const message = messageData.data.message;
+            return message.conversation || message.extendedTextMessage?.text || '';
+        }
+        
+        // Formato antigo (fallback)
+        if (messageData && messageData.messages && messageData.messages[0]) {
+            const message = messageData.messages[0].message;
+            return message.conversation || message.extendedTextMessage?.text || '';
+        }
+        
+        return '';
     }
 
     extractSenderNumber(messageData) {
-        return this.extractPhoneNumber(messageData.messages[0].key.remoteJid);
+        // Novo formato
+        if (messageData && messageData.data && messageData.data.key) {
+            return this.extractPhoneNumber(messageData.data.key.remoteJid);
+        }
+        
+        // Formato antigo (fallback)
+        if (messageData && messageData.messages && messageData.messages[0]) {
+            return this.extractPhoneNumber(messageData.messages[0].key.remoteJid);
+        }
+        
+        return '';
     }
 
     isFromAdmin(senderNumber) {
