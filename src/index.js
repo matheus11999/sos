@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const MessageHandler = require('./controllers/messageHandler');
+const OpenRouterService = require('./services/openrouter');
 const Logger = require('./utils/logger');
 
 const app = express();
@@ -95,6 +96,27 @@ async function startServer() {
             logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
             logger.error('Please copy .env.example to .env and fill in the required values');
             process.exit(1);
+        }
+        
+        // Testar conexão com OpenRouter
+        logger.log('Testing OpenRouter API connection...');
+        const openRouterService = new OpenRouterService();
+        try {
+            const testResult = await openRouterService.generateResponse('test', {
+                userMessage: 'test connection',
+                availableItems: [],
+                isAdmin: false
+            });
+            
+            if (testResult.success) {
+                logger.log('✅ OpenRouter API connection successful');
+            } else {
+                logger.error('❌ OpenRouter API connection failed:', testResult.error);
+                logger.error('Check your OPEN_ROUTER_API_KEY in .env file');
+            }
+        } catch (error) {
+            logger.error('❌ OpenRouter API connection error:', error.message);
+            logger.error('Check your OPEN_ROUTER_API_KEY in .env file');
         }
         
         app.listen(port, () => {
