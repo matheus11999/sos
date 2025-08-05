@@ -266,7 +266,7 @@ class AdminProcessor {
         const isGlobalPaused = await this.databaseService.isGlobalPaused();
         const globalStatus = isGlobalPaused ? 'PAUSADA GLOBALMENTE' : 'ATIVA GLOBALMENTE';
 
-        const helpMessage = `*COMANDOS ADMINISTRATIVOS*\n_Status da IA: ${globalStatus}_\n\n*Itens e Preços:*\n- `Adicionar [nome] R$[preço]`\n- `Editar [nome] R$[novo preço]`\n- `Remover [nome]`\n- `Listar itens`\n\n*Controle da IA:*\n- `Pausar ia global`\n- `Reativar ia global`\n- `Pausar ia [número]`\n- `Reativar ia [número]`\n- `Ver pausados`\n\n*Ajuda:*\n- `Ajuda` ou `Comandos`\n\n*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
+        const helpMessage = `*COMANDOS ADMINISTRATIVOS*\n_Status da IA: ${globalStatus}_\n\n*Itens e Preços:*\n- *Adicionar [nome] R$[preço]*\n- *Editar [nome] R$[novo preço]*\n- *Remover [nome]*\n- *Listar itens*\n\n*Controle da IA:*\n- *Pausar ia global*\n- *Reativar ia global*\n- *Pausar ia [número]*\n- *Reativar ia [número]*\n- *Ver pausados*\n\n*Ajuda:*\n- *Ajuda* ou *Comandos*\n\n*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
 
         await this.evolutionService.sendMessage(senderNumber, helpMessage);
         
