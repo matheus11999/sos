@@ -8,6 +8,7 @@ class OpenRouterService {
         this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
         this.model = 'z-ai/glm-4.5-air:free';
         this.customInstructions = this.loadCustomInstructions();
+        this.signature = '\n\n---\nInteligencia Artificial S O S Celular\nPara falar com um atendente digite: Atendente';
     }
 
     loadCustomInstructions() {
@@ -51,9 +52,11 @@ class OpenRouterService {
                 }
             });
 
+            const messageWithSignature = response.data.choices[0].message.content + this.signature;
+
             return {
                 success: true,
-                message: response.data.choices[0].message.content,
+                message: messageWithSignature,
                 usage: response.data.usage
             };
 
@@ -68,34 +71,18 @@ class OpenRouterService {
     }
 
     buildSystemPrompt(availableItems = [], isAdmin = false) {
-        let systemPrompt = `Você é um assistente virtual de uma assistência técnica de celulares. Seu papel é ajudar clientes a consultar preços de peças e serviços.
-
-INSTRUÇÕES IMPORTANTES:
-1. Seja sempre educado, prestativo e profissional
-2. Responda de forma clara e objetiva
-3. Use português brasileiro
-4. Se o cliente perguntar sobre preços, consulte a lista de itens disponíveis
-5. Se não encontrar o item solicitado, sugira itens similares ou ofereça ajuda de um atendente
-6. Se o cliente quiser falar com um atendente, seja receptivo e confirme que será providenciado
-
-`;
+        let systemPrompt = `Você é um assistente virtual de uma assistência técnica de celulares. Seu papel é ajudar clientes a consultar preços de peças e serviços.\n\nINSTRUÇÕES IMPORTANTES:\n1. Seja sempre educado, prestativo e profissional\n2. Responda de forma clara e objetiva\n3. Use português brasileiro\n4. Se o cliente perguntar sobre preços, consulte a lista de itens disponíveis\n5. Se não encontrar o item solicitado, sugira itens similares ou ofereça ajuda de um atendente\n6. Se o cliente quiser falar com um atendente, seja receptivo e confirme que será providenciado\n\n`;
 
         if (availableItems && availableItems.length > 0) {
             systemPrompt += `ITENS E PREÇOS DISPONÍVEIS:\n`;
             availableItems.forEach(item => {
-                systemPrompt += `- ${item.item}: R$${item.price}\n`;
+                systemPrompt += `- ${item.item}: R${item.price}\n`;
             });
             systemPrompt += '\n';
         }
 
         if (isAdmin) {
-            systemPrompt += `COMANDOS ADMINISTRATIVOS (apenas para admin):
-- "Adicionar [nome do item] R$[preço]" - para adicionar um novo item
-- "Editar [nome do item] R$[novo preço]" - para alterar preço
-- "Remover [nome do item]" - para remover um item
-- "Listar itens" - para ver todos os itens
-
-`;
+            systemPrompt += `COMANDOS ADMINISTRATIVOS (apenas para admin):\n- "Adicionar [nome do item] R$[preço]" - para adicionar um novo item\n- "Editar [nome do item] R$[novo preço]" - para alterar preço\n- "Remover [nome do item]" - para remover um item\n- "Listar itens" - para ver todos os itens\n\n`;
         }
 
         // Adicionar instruções personalizadas se existirem
@@ -103,17 +90,7 @@ INSTRUÇÕES IMPORTANTES:
             systemPrompt += `\nINSTRUÇÕES PERSONALIZADAS DA LOJA:\n${this.customInstructions}\n\n`;
         }
 
-        systemPrompt += `EXEMPLOS DE INTERAÇÃO:
-Cliente: "Qual o preço da frontal do A13?"
-Você: "A frontal do A13 custa R$250. Posso ajudar com mais alguma coisa?"
-
-Cliente: "Quero falar com um atendente"
-Você: "Claro! Vou notificar um atendente para entrar em contato com você. Aguarde um momento, por favor."
-
-Cliente: "Quanto custa para trocar a bateria do J7?"
-Você: "Não tenho o preço específico para a bateria do J7, mas temos a bateria do J8 por R$100. Gostaria que um atendente verificasse o preço exato para o J7?"
-
-Responda sempre de forma natural e humana, como se fosse um atendente real da loja.`;
+        systemPrompt += `EXEMPLOS DE INTERAÇÃO:\nCliente: "Qual o preço da frontal do A13?"\nVocê: "A frontal do A13 custa R$250. Posso ajudar com mais alguma coisa?"\n\nCliente: "Quero falar com um atendente"\nVocê: "Claro! Vou notificar um atendente para entrar em contato com você. Aguarde um momento, por favor."\n\nCliente: "Quanto custa para trocar a bateria do J7?"\nVocê: "Não tenho o preço específico para a bateria do J7, mas temos a bateria do J8 por R$100. Gostaria que um atendente verificasse o preço exato para o J7?"\n\nResponda sempre de forma natural e humana, como se fosse um atendente real da loja.`;
 
         return systemPrompt;
     }
@@ -125,14 +102,7 @@ Responda sempre de forma natural e humana, como se fosse um atendente real da lo
                 messages: [
                     {
                         role: 'system',
-                        content: `Você é um classificador de intenções para um sistema de atendimento. Analise a mensagem do usuário e retorne APENAS uma das opções:
-- "price_query" - se o usuário está perguntando sobre preço de peça ou serviço
-- "human_support" - se o usuário quer falar com atendente humano
-- "greeting" - se é uma saudação
-- "admin_command" - se parece ser um comando administrativo (adicionar, editar, remover, listar)
-- "other" - para outras situações
-
-Retorne APENAS a classificação, sem explicações.`
+                        content: `Você é um classificador de intenções para um sistema de atendimento. Analise a mensagem do usuário e retorne APENAS uma das opções:\n- "price_query" - se o usuário está perguntando sobre preço de peça ou serviço\n- "human_support" - se o usuário quer falar com atendente humano\n- "greeting" - se é uma saudação\n- "admin_command" - se parece ser um comando administrativo (adicionar, editar, remover, listar)\n- "other" - para outras situações\n\nRetorne APENAS a classificação, sem explicações.`
                     },
                     {
                         role: 'user',
@@ -165,14 +135,7 @@ Retorne APENAS a classificação, sem explicações.`
                 messages: [
                     {
                         role: 'system',
-                        content: `Extraia APENAS o nome da peça ou serviço mencionado na mensagem. Retorne de forma limpa, sem "do", "da", "de" desnecessários. 
-
-Exemplos:
-"Qual o preço da frontal do A13?" -> "frontal A13"
-"Quanto custa bateria J8?" -> "bateria J8" 
-"Preço troca conector carga" -> "troca conector carga"
-
-Se não conseguir identificar, retorne "não identificado".`
+                        content: `Extraia APENAS o nome da peça ou serviço mencionado na mensagem. Retorne de forma limpa, sem "do", "da", "de" desnecessários. \n\nExemplos:\n"Qual o preço da frontal do A13?" -> "frontal A13"\n"Quanto custa bateria J8?" -> "bateria J8" \n"Preço troca conector carga" -> "troca conector carga"\n\nSe não conseguir identificar, retorne "não identificado".`
                     },
                     {
                         role: 'user',
