@@ -52,18 +52,18 @@ class CustomerProcessor {
             const item = await this.databaseService.findItem(extractedItem);
             
             if (item) {
-                const responseMessage = `${item.item}: R${item.price}\n\nPosso ajudar com mais alguma coisa? 😊`;
+                const responseMessage = `*${item.item}*: R$${item.price}\n\nPosso ajudar com mais alguma coisa? 😊`;
                 await this.evolutionService.sendMessage(senderNumber, responseMessage);
                 
-                this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R${item.price}`);
+                this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R$${item.price}`);
                 return { success: true, action: 'price_found', item };
             } else {
                 const similarItems = await this.databaseService.findItems(extractedItem);
                 
                 if (similarItems.length > 0) {
-                    let responseMessage = `Não tenho o preço exato para "${extractedItem}", mas tenho estas opções similares:\n\n`;
+                    let responseMessage = `Não tenho o preço exato para *"${extractedItem}"*, mas tenho estas opções similares:\n\n`;
                     similarItems.slice(0, 3).forEach(similarItem => {
-                        responseMessage += `• ${similarItem.item}: R${similarItem.price}\n`;
+                        responseMessage += `• *${similarItem.item}*: R$${similarItem.price}\n`;
                     });
                     responseMessage += `\nGostaria que um atendente verifique o preço específico para você?`;
                     

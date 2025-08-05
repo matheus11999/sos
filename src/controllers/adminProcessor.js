@@ -29,6 +29,10 @@ class AdminProcessor {
                     return await this.handleResumeAI(intent.params, senderNumber);
                 case 'list_paused':
                     return await this.handleListPaused(senderNumber);
+                case 'pause_global':
+                    return await this.handlePauseGlobal(senderNumber);
+                case 'resume_global':
+                    return await this.handleResumeGlobal(senderNumber);
                 case 'help':
                     return await this.handleAdminHelp(senderNumber);
                 default:
@@ -60,8 +64,16 @@ class AdminProcessor {
             return this.parseRemoveCommand(messageText);
         }
         
-        if (text.includes('listar') || text.includes('list') || text === 'itens') {
+        if (text === 'listar itens' || text === 'list') {
             return { command: 'list', params: {} };
+        }
+
+        if (text === 'pausar ia global') {
+            return { command: 'pause_global', params: {} };
+        }
+
+        if (text === 'reativar ia global') {
+            return { command: 'resume_global', params: {} };
         }
 
         if (text.startsWith('pausar ia ')) {
@@ -78,7 +90,7 @@ class AdminProcessor {
             return { command: 'list_paused', params: {} };
         }
         
-        if (text.includes('ajuda') || text.includes('help') || text.includes('comandos')) {
+        if (text === 'ajuda' || text === 'help' || text === 'comandos') {
             return { command: 'help', params: {} };
         }
         
@@ -148,7 +160,7 @@ class AdminProcessor {
         
         await this.evolutionService.sendMessage(senderNumber, result.message);
         
-        this.logger.log(`Admin ${senderNumber} added item: ${params.itemName} - R${params.price} - ${result.success ? 'Success' : 'Failed'}`);
+        this.logger.log(`Admin ${senderNumber} added item: ${params.itemName} - R$${params.price} - ${result.success ? 'Success' : 'Failed'}`);
         
         return { success: result.success, action: 'add', result };
     }
@@ -166,7 +178,7 @@ class AdminProcessor {
         
         await this.evolutionService.sendMessage(senderNumber, result.message);
         
-        this.logger.log(`Admin ${senderNumber} edited item: ${params.itemName} - R${params.price} - ${result.success ? 'Success' : 'Failed'}`);
+        this.logger.log(`Admin ${senderNumber} edited item: ${params.itemName} - R$${params.price} - ${result.success ? 'Success' : 'Failed'}`);
         
         return { success: result.success, action: 'edit', result };
     }
@@ -236,8 +248,25 @@ class AdminProcessor {
         return { success: true, action: 'list_paused' };
     }
 
+    async handlePauseGlobal(senderNumber) {
+        await this.databaseService.setGlobalPause(true);
+        await this.evolutionService.sendMessage(senderNumber, '*A IA foi pausada globalmente.*\nNenhum cliente receberá respostas automáticas.');
+        this.logger.log(`Admin ${senderNumber} paused AI globally`);
+        return { success: true, action: 'pause_global' };
+    }
+
+    async handleResumeGlobal(senderNumber) {
+        await this.databaseService.setGlobalPause(false);
+        await this.evolutionService.sendMessage(senderNumber, '*A IA foi reativada globalmente.*\nClientes voltarão a receber respostas automáticas.');
+        this.logger.log(`Admin ${senderNumber} resumed AI globally`);
+        return { success: true, action: 'resume_global' };
+    }
+
     async handleAdminHelp(senderNumber) {
-        const helpMessage = `*COMANDOS ADMINISTRATIVOS*\n\n📝 *Adicionar item:*\nAdicionar [nome] R$[preço]\nEx: Adicionar Frontal A13 R$250\n\n✏️ *Editar preço:*\nEditar [nome] R$[novo preço]\nEx: Editar Frontal A13 R$300\n\n🗑️ *Remover item:*\nRemover [nome do item]\nEx: Remover Frontal A13\n\n📋 *Listar todos os itens:*\nListar itens\n\n⏸️ *Pausar IA para um número:*\nPausar ia [número]\n\n▶️ *Reativar IA para um número:*\nReativar ia [número]\n\n📜 *Ver números com IA pausada:*\nVer pausados\n\n❓ *Ver esta ajuda:*\nAjuda ou Help\n\n*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
+        const isGlobalPaused = await this.databaseService.isGlobalPaused();
+        const globalStatus = isGlobalPaused ? 'PAUSADA GLOBALMENTE' : 'ATIVA GLOBALMENTE';
+
+        const helpMessage = `*COMANDOS ADMINISTRATIVOS*\n_Status da IA: ${globalStatus}_\n\n*Itens e Preços:*\n- `Adicionar [nome] R$[preço]`\n- `Editar [nome] R$[novo preço]`\n- `Remover [nome]`\n- `Listar itens`\n\n*Controle da IA:*\n- `Pausar ia global`\n- `Reativar ia global`\n- `Pausar ia [número]`\n- `Reativar ia [número]`\n- `Ver pausados`\n\n*Ajuda:*\n- `Ajuda` ou `Comandos`\n\n*Obs:* Você também pode conversar normalmente como um cliente para testar o sistema.`;
 
         await this.evolutionService.sendMessage(senderNumber, helpMessage);
         
