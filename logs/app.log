@@ -1,0 +1,13 @@
+[2025-08-05T19:15:04.376Z] [INFO] Starting WhatsApp Tech Support Bot...
+[2025-08-05T19:15:04.382Z] [INFO] Server running on port 3000
+[2025-08-05T19:15:04.383Z] [INFO] Available endpoints:
+[2025-08-05T19:15:04.383Z] [INFO]   POST /webhook - WhatsApp webhook
+[2025-08-05T19:15:04.384Z] [INFO]   GET  /qrcode - Get QR code
+[2025-08-05T19:15:04.384Z] [INFO]   POST /connect - Connect instance
+[2025-08-05T19:15:04.385Z] [INFO]   POST /webhook/set - Set webhook URL
+[2025-08-05T19:15:04.383Z] [INFO]   GET  / - Server status
+[2025-08-05T19:15:04.385Z] [INFO]   POST /test/message - Send test message
+[2025-08-05T19:15:04.383Z] [INFO]   GET  /status - Instance status
+[2025-08-05T19:15:04.385Z] [INFO] Bot is ready to receive messages!
+[2025-08-05T19:15:04.385Z] [INFO]   GET  /health - Health check
+[2025-08-05T19:15:04.385Z] [INFO] 

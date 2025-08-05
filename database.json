@@ -1,0 +1,42 @@
+[
+  {
+    "item": "Frontal A10s OLED",
+    "price": 200
+  },
+  {
+    "item": "Frontal A10s",
+    "price": 150
+  },
+  {
+    "item": "Frontal A13",
+    "price": 250
+  },
+  {
+    "item": "Bateria J8",
+    "price": 100
+  },
+  {
+    "item": "Bateria A10s",
+    "price": 80
+  },
+  {
+    "item": "Bateria A13",
+    "price": 120
+  },
+  {
+    "item": "Troca de conector de carga",
+    "price": 60
+  },
+  {
+    "item": "Reparo placa mãe básico",
+    "price": 150
+  },
+  {
+    "item": "Troca de alto falante",
+    "price": 40
+  },
+  {
+    "item": "Troca de microfone",
+    "price": 35
+  }
+]
