@@ -272,6 +272,27 @@ Para contribuir com o projeto:
 4. Teste localmente
 5. Envie um pull request
 
+## 🚀 Deploy para Produção
+
+### EasyPanel (Recomendado)
+
+Veja o arquivo `DEPLOYMENT.md` para instruções completas de deploy no EasyPanel.
+
+**Resumo rápido:**
+1. Conecte o repositório GitHub no EasyPanel
+2. Configure as variáveis de ambiente
+3. Deploy automático
+4. Configure o webhook: `https://sua-app.easypanel.host/webhook`
+
+### Outras Plataformas
+
+O projeto é compatível com:
+- Heroku
+- Railway
+- Render
+- Vercel (com adaptações)
+- VPS (Docker ou PM2)
+
 ## 📄 Licença
 
 Este projeto está sob a licença ISC. Veja o arquivo `package.json` para mais detalhes.
@@ -280,6 +301,7 @@ Este projeto está sob a licença ISC. Veja o arquivo `package.json` para mais d
 
 Para suporte técnico:
 - Verifique os logs em `logs/`
+- Consulte `DEPLOYMENT.md` para problemas de deploy
 - Consulte a documentação da Evolution API 2
 - Verifique a documentação do Open Router
 
