@@ -178,7 +178,21 @@ class EvolutionService {
     }
 
     isValidMessage(messageData) {
-        // Suporte ao novo formato do Evolution API 2
+        // Verificar formato direto do webhook (messageData já é o data)
+        if (messageData && messageData.message && messageData.key) {
+            const message = messageData.message;
+            const remoteJid = messageData.key?.remoteJid;
+            
+            // Ignorar mensagens de grupo
+            if (remoteJid && remoteJid.includes('@g.us')) {
+                return false;
+            }
+            
+            // Verificar se é mensagem de texto
+            return !!(message.conversation || message.extendedTextMessage?.text);
+        }
+        
+        // Suporte ao formato com data
         if (messageData && messageData.data && messageData.data.message) {
             const message = messageData.data.message;
             const remoteJid = messageData.data.key?.remoteJid;
@@ -202,7 +216,13 @@ class EvolutionService {
     }
 
     extractMessageText(messageData) {
-        // Novo formato
+        // Formato direto do webhook
+        if (messageData && messageData.message) {
+            const message = messageData.message;
+            return message.conversation || message.extendedTextMessage?.text || '';
+        }
+        
+        // Formato com data
         if (messageData && messageData.data && messageData.data.message) {
             const message = messageData.data.message;
             return message.conversation || message.extendedTextMessage?.text || '';
@@ -218,7 +238,12 @@ class EvolutionService {
     }
 
     extractSenderNumber(messageData) {
-        // Novo formato
+        // Formato direto do webhook
+        if (messageData && messageData.key) {
+            return this.extractPhoneNumber(messageData.key.remoteJid);
+        }
+        
+        // Formato com data
         if (messageData && messageData.data && messageData.data.key) {
             return this.extractPhoneNumber(messageData.data.key.remoteJid);
         }

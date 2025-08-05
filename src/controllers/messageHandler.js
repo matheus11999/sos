@@ -49,14 +49,25 @@ class MessageHandler {
             const webhookData = req.body;
             
             if (webhookData.event === 'messages.upsert') {
+                // Verificar estrutura da mensagem
+                let messageData = webhookData.data;
+                
                 // Verificar se é mensagem de grupo - ignorar completamente
-                if (webhookData.data && webhookData.data.key && webhookData.data.key.remoteJid && webhookData.data.key.remoteJid.includes('@g.us')) {
-                    this.logger.logGroupIgnored(webhookData.data.key.remoteJid);
+                const remoteJid = messageData?.key?.remoteJid;
+                if (remoteJid && remoteJid.includes('@g.us')) {
+                    this.logger.logGroupIgnored(remoteJid);
                     res.status(200).json({ status: 'success', message: 'Group message ignored' });
                     return;
                 }
                 
-                const result = await this.handleIncomingMessage(webhookData.data);
+                // Verificar se é uma mensagem válida (texto)
+                if (!this.evolutionService.isValidMessage(messageData)) {
+                    // Mensagem não é texto (pode ser imagem, áudio, etc.)
+                    res.status(200).json({ status: 'success', message: 'Non-text message ignored' });
+                    return;
+                }
+                
+                const result = await this.handleIncomingMessage(messageData);
                 
                 if (result.success) {
                     res.status(200).json({ status: 'success', message: 'Message processed' });

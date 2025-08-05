@@ -34,7 +34,10 @@ class Logger {
 
     log(message, data = null) {
         const formattedMessage = this.formatMessage('info', message, data);
-        console.log(formattedMessage.trim());
+        // Em modo debug, não mostrar logs verbosos no terminal
+        if (!this.debugTerminal) {
+            console.log(formattedMessage.trim());
+        }
         this.writeToFile(this.logFile, formattedMessage);
     }
 
@@ -76,11 +79,14 @@ class Logger {
         };
         
         // Debug simplificado - só mostrar endpoints importantes
-        if (this.debugTerminal && req.url === '/webhook') {
+        if (this.debugTerminal && (req.url === '/webhook' || req.url === '/webhook/messages-upsert')) {
             console.log(`\n📥 WEBHOOK ${new Date().toLocaleTimeString()}`);
         }
         
-        this.log(`HTTP Request: ${req.method} ${req.url}`, requestData);
+        // Não salvar dados verbosos quando em debug
+        if (!this.debugTerminal) {
+            this.log(`HTTP Request: ${req.method} ${req.url}`, requestData);
+        }
     }
 
     logResponse(res, responseTime) {
@@ -90,7 +96,9 @@ class Logger {
         };
         
         // Não mostrar response no debug simplificado
-        this.log(`HTTP Response: ${res.statusCode}`, responseData);
+        if (!this.debugTerminal) {
+            this.log(`HTTP Response: ${res.statusCode}`, responseData);
+        }
     }
 
     logWebhook(webhookData) {
@@ -111,11 +119,14 @@ class Logger {
             console.log(`📨 ${chatType} | ${pushName} | ${messageType}`);
         }
         
-        this.log('Webhook received', {
-            event: webhookData.event,
-            timestamp: new Date().toISOString(),
-            dataKeys: Object.keys(webhookData.data || {})
-        });
+        // Não salvar dados verbosos em debug mode
+        if (!this.debugTerminal) {
+            this.log('Webhook received', {
+                event: webhookData.event,
+                timestamp: new Date().toISOString(),
+                dataKeys: Object.keys(webhookData.data || {})
+            });
+        }
     }
 
     logMessageProcessing(senderNumber, messageText, isAdmin, processingResult) {

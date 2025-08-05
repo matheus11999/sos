@@ -41,6 +41,17 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
+// Endpoint específico para Evolution API 2
+app.post('/webhook/messages-upsert', async (req, res) => {
+    try {
+        logger.logWebhook(req.body);
+        await messageHandler.handleWebhook(req, res);
+    } catch (error) {
+        logger.error('Webhook error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 app.post('/test/message', async (req, res) => {
     try {
@@ -123,7 +134,8 @@ async function startServer() {
             logger.log(`Server running on port ${port}`);
             logger.log('Available endpoints:');
             logger.log('  GET  / - Server status');
-            logger.log('  POST /webhook - WhatsApp webhook');
+            logger.log('  POST /webhook - WhatsApp webhook (generic)');
+            logger.log('  POST /webhook/messages-upsert - Evolution API 2 webhook');
             logger.log('  POST /test/message - Send test message');
             logger.log('  GET  /health - Health check');
             logger.log('');

@@ -1,10 +1,25 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 class OpenRouterService {
     constructor() {
         this.apiKey = process.env.OPEN_ROUTER_API_KEY;
         this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
         this.model = 'z-ai/glm-4.5-air:free';
+        this.customInstructions = this.loadCustomInstructions();
+    }
+
+    loadCustomInstructions() {
+        try {
+            const instructionsPath = path.join(__dirname, '../../instructions.txt');
+            if (fs.existsSync(instructionsPath)) {
+                return fs.readFileSync(instructionsPath, 'utf8');
+            }
+        } catch (error) {
+            console.log('Arquivo de instruções personalizadas não encontrado, usando padrão.');
+        }
+        return '';
     }
 
     async generateResponse(message, context = {}) {
@@ -81,6 +96,11 @@ INSTRUÇÕES IMPORTANTES:
 - "Listar itens" - para ver todos os itens
 
 `;
+        }
+
+        // Adicionar instruções personalizadas se existirem
+        if (this.customInstructions) {
+            systemPrompt += `\nINSTRUÇÕES PERSONALIZADAS DA LOJA:\n${this.customInstructions}\n\n`;
         }
 
         systemPrompt += `EXEMPLOS DE INTERAÇÃO:
