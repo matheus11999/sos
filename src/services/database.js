@@ -4,36 +4,34 @@ const path = require('path');
 class DatabaseService {
     constructor() {
         this.dbPath = path.join(__dirname, '../../database.json');
+        this.historyLimit = 10; // Max number of messages to keep in history
     }
 
     async loadDatabase() {
         try {
             if (!await fs.exists(this.dbPath)) {
-                // If the file doesn't exist, create it with a default structure
-                const defaultDb = { items: [], pausedNumbers: [], globalPause: false };
+                const defaultDb = { items: [], pausedNumbers: [], globalPause: false, conversationHistory: {} };
                 await this.saveDatabase(defaultDb);
                 return defaultDb;
             }
             
             const data = await fs.readJson(this.dbPath);
 
-            // Handle old format (just an array of items)
             if (Array.isArray(data)) {
-                return { items: data, pausedNumbers: [], globalPause: false };
+                return { items: data, pausedNumbers: [], globalPause: false, conversationHistory: {} };
             }
 
-            // Ensure globalPause property exists
             return {
                 items: [],
                 pausedNumbers: [],
                 globalPause: false,
+                conversationHistory: {},
                 ...data,
             };
 
         } catch (error) {
             console.error('Error loading database:', error);
-            // Return a default structure in case of any error
-            return { items: [], pausedNumbers: [], globalPause: false };
+            return { items: [], pausedNumbers: [], globalPause: false, conversationHistory: {} };
         }
     }
 
@@ -171,7 +169,6 @@ class DatabaseService {
     async isPaused(phoneNumber) {
         const db = await this.loadDatabase();
         
-        // Check for global pause first
         if (db.globalPause) {
             return true;
         }
@@ -183,7 +180,6 @@ class DatabaseService {
 
         const isStillPaused = new Date(pausedInfo.pausedUntil) > new Date();
         if (!isStillPaused) {
-            // Automatically remove expired pause
             await this.resumeAI(phoneNumber);
             return false;
         }
@@ -226,6 +222,27 @@ class DatabaseService {
     async isGlobalPaused() {
         const db = await this.loadDatabase();
         return db.globalPause;
+    }
+
+    async getConversationHistory(phoneNumber) {
+        const db = await this.loadDatabase();
+        return db.conversationHistory[phoneNumber] || [];
+    }
+
+    async addMessageToHistory(phoneNumber, role, message) {
+        const db = await this.loadDatabase();
+        if (!db.conversationHistory[phoneNumber]) {
+            db.conversationHistory[phoneNumber] = [];
+        }
+
+        db.conversationHistory[phoneNumber].push({ role, content: message });
+
+        // Keep the history trimmed to the last X messages
+        if (db.conversationHistory[phoneNumber].length > this.historyLimit) {
+            db.conversationHistory[phoneNumber].shift();
+        }
+
+        await this.saveDatabase(db);
     }
 }
 

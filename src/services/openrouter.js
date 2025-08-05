@@ -29,22 +29,19 @@ Para falar com um atendente digite: *Atendente*`;
 
     async generateResponse(message, context = {}) {
         try {
-            const { userMessage, availableItems, isAdmin = false } = context;
+            const { availableItems, isAdmin = false, history = [] } = context;
             
             let systemPrompt = this.buildSystemPrompt(availableItems, isAdmin);
             
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                ...history,
+                { role: 'user', content: message }
+            ];
+
             const response = await axios.post(this.baseUrl, {
                 model: this.model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: systemPrompt
-                    },
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
+                messages: messages,
                 temperature: 0.7,
                 max_tokens: 500
             }, {
@@ -82,11 +79,12 @@ INSTRUÇÕES IMPORTANTES:
    - Use asteriscos para negrito (ex: *Produto*).
    - Use underscores para itálico (ex: _Aviso importante_).
    - Use isso para destacar nomes de produtos, preços e informações importantes.
-2. Seja sempre educado, prestativo e profissional.
-3. Responda de forma clara e objetiva em português brasileiro.
-4. Se o cliente perguntar sobre preços, consulte a lista de itens disponíveis.
-5. Se não encontrar o item solicitado, sugira itens similares ou ofereça ajuda de um atendente.
-6. Se o cliente quiser falar com um atendente, seja receptivo e confirme que será providenciado.
+2. **Use o histórico da conversa para evitar perguntas repetitivas.** Se o cliente já informou o modelo do aparelho, não pergunte novamente.
+3. Seja sempre educado, prestativo e profissional.
+4. Responda de forma clara e objetiva em português brasileiro.
+5. Se o cliente perguntar sobre preços, consulte a lista de itens disponíveis.
+6. Se não encontrar o item solicitado, sugira itens similares ou ofereça ajuda de um atendente.
+7. Se o cliente quiser falar com um atendente, seja receptivo e confirme que será providenciado.
 
 `;
 

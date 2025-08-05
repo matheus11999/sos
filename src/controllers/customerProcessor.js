@@ -20,16 +20,29 @@ class CustomerProcessor {
 
             const intent = await this.openRouterService.interpretIntent(messageText);
             
+            let result;
             switch (intent) {
                 case 'price_query':
-                    return await this.handlePriceQuery(messageText, senderNumber);
+                    result = await this.handlePriceQuery(messageText, senderNumber);
+                    break;
                 case 'human_support':
-                    return await this.handleHumanSupportRequest(messageText, senderNumber);
+                    result = await this.handleHumanSupportRequest(messageText, senderNumber);
+                    break;
                 case 'greeting':
-                    return await this.handleGreeting(messageText, senderNumber);
+                    result = await this.handleGreeting(messageText, senderNumber);
+                    break;
                 default:
-                    return await this.handleGeneralQuery(messageText, senderNumber);
+                    result = await this.handleGeneralQuery(messageText, senderNumber);
+                    break;
             }
+
+            // Save context after processing
+            if (result.aiResponse) {
+                await this.databaseService.addMessageToHistory(senderNumber, 'user', messageText);
+                await this.databaseService.addMessageToHistory(senderNumber, 'assistant', result.aiResponse);
+            }
+
+            return result;
 
         } catch (error) {
             this.logger.error('Error processing customer message:', error);
@@ -43,6 +56,7 @@ class CustomerProcessor {
 
     async handlePriceQuery(messageText, senderNumber) {
         try {
+            const history = await this.databaseService.getConversationHistory(senderNumber);
             const extractedItem = await this.openRouterService.extractItemFromQuery(messageText);
             
             if (extractedItem === 'não identificado') {
@@ -56,7 +70,7 @@ class CustomerProcessor {
                 await this.evolutionService.sendMessage(senderNumber, responseMessage);
                 
                 this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R$${item.price}`);
-                return { success: true, action: 'price_found', item };
+                return { success: true, action: 'price_found', item, aiResponse: responseMessage };
             } else {
                 const similarItems = await this.databaseService.findItems(extractedItem);
                 
@@ -70,19 +84,9 @@ class CustomerProcessor {
                     await this.evolutionService.sendMessage(senderNumber, responseMessage);
                     
                     this.logger.log(`Similar items found for ${senderNumber}: ${similarItems.length} items`);
-                    return { success: true, action: 'similar_items_found', items: similarItems };
+                    return { success: true, action: 'similar_items_found', items: similarItems, aiResponse: responseMessage };
                 } else {
-                    const availableItems = await this.databaseService.getAllItems();
-                    const response = await this.openRouterService.generateResponse(messageText, {
-                        userMessage: messageText,
-                        availableItems: availableItems,
-                        isAdmin: false
-                    });
-
-                    await this.evolutionService.sendMessage(senderNumber, response.message);
-                    
-                    this.logger.log(`AI response for unknown item query from ${senderNumber}`);
-                    return { success: true, action: 'ai_response_no_item' };
+                    return await this.handleGeneralQuery(messageText, senderNumber);
                 }
             }
 
@@ -130,7 +134,7 @@ class CustomerProcessor {
 
             this.logger.log(`Greeting sent to ${senderNumber}`);
             
-            return { success: true, action: 'greeting_sent' };
+            return { success: true, action: 'greeting_sent', aiResponse: greetingMessage };
 
         } catch (error) {
             this.logger.error('Error handling greeting:', error);
@@ -141,11 +145,12 @@ class CustomerProcessor {
     async handleGeneralQuery(messageText, senderNumber) {
         try {
             const availableItems = await this.databaseService.getAllItems();
+            const history = await this.databaseService.getConversationHistory(senderNumber);
             
             const response = await this.openRouterService.generateResponse(messageText, {
-                userMessage: messageText,
                 availableItems: availableItems,
-                isAdmin: false
+                isAdmin: false,
+                history: history
             });
 
             if (response.success) {
