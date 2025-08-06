@@ -17,7 +17,8 @@ class ConfigService {
                     aiActive: true,
                     aiTraining: "Você é um assistente de uma loja de assistência técnica de celulares. Seja prestativo, educado e direto. Sempre consulte nossa lista de produtos e preços antes de responder sobre valores. Se não souber algo específico, seja honesto.",
                     openRouterModel: "microsoft/wizardlm-2-8x22b",
-                    openRouterApiKey: process.env.OPEN_ROUTER_API_KEY || ""
+                    openRouterApiKey: "",
+                    debugNumber: ""
                 };
                 await this.saveConfig(defaultConfig);
                 return defaultConfig;
@@ -32,7 +33,8 @@ class ConfigService {
                 aiActive: true,
                 aiTraining: "Você é um assistente de uma loja de assistência técnica de celulares. Seja prestativo, educado e direto. Sempre consulte nossa lista de produtos e preços antes de responder sobre valores. Se não souber algo específico, seja honesto.",
                 openRouterModel: "microsoft/wizardlm-2-8x22b",
-                openRouterApiKey: process.env.OPEN_ROUTER_API_KEY || "",
+                openRouterApiKey: "",
+                debugNumber: "",
                 ...config
             };
         } catch (error) {

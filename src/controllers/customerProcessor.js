@@ -172,10 +172,11 @@ class CustomerProcessor {
                 return { 
                     success: true, 
                     action: 'general_response',
-                    rawResponse: response.rawMessage 
+                    rawResponse: response.fullMessage 
                 };
             } else {
-                const fallbackMessage = `Desculpe, não consegui processar sua mensagem no momento. 😔\n\nVocê pode:\n• Perguntar sobre preços de peças específicas\n• Solicitar atendimento humano digitando "quero falar com atendente"\n\nComo posso ajudar? 😊`;
+                // Usar a mensagem de erro personalizada do OpenRouter
+                const fallbackMessage = response.fullMessage || `Desculpe, não consegui processar sua mensagem no momento. 😔\n\nVocê pode:\n• Perguntar sobre preços de peças específicas\n• Solicitar atendimento humano digitando "quero falar com atendente"\n\nComo posso ajudar? 😊`;
 
                 await this.evolutionService.sendMessage(senderNumber, fallbackMessage);
                 

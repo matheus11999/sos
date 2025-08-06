@@ -12,9 +12,18 @@ class OpenRouterService {
 
     async getConfig() {
         const config = await this.configService.getConfig();
+        
+        // Priorizar SEMPRE as configurações do dashboard sobre as do .env
+        const apiKey = config.openRouterApiKey || process.env.OPEN_ROUTER_API_KEY;
+        const model = config.openRouterModel || process.env.OPEN_ROUTER_MODEL || 'microsoft/wizardlm-2-8x22b';
+        
+        if (!apiKey) {
+            throw new Error('API Key do OpenRouter não configurada. Configure no dashboard em IA & OpenRouter.');
+        }
+        
         return {
-            apiKey: config.openRouterApiKey || process.env.OPEN_ROUTER_API_KEY,
-            model: config.openRouterModel || 'microsoft/wizardlm-2-8x22b',
+            apiKey: apiKey,
+            model: model,
             aiActive: config.aiActive !== false,
             aiTraining: config.aiTraining || "Você é um assistente de uma loja de assistência técnica de celulares. Seja prestativo, educado e direto.",
             assistanceName: config.assistanceName || "Tech Support Bot",
@@ -99,6 +108,9 @@ Para falar com um atendente digite: *Atendente*`;
         try {
             const config = await this.getConfig();
             
+            console.log(`[OpenRouter] Using model: ${config.model}`);
+            console.log(`[OpenRouter] API Key configured: ${config.apiKey ? 'Yes' : 'No'}`);
+            
             // Verifica se a IA está ativa
             if (!config.aiActive) {
                 return {
@@ -177,10 +189,16 @@ Instruções específicas:
         } catch (error) {
             console.error('Error generating response:', error.response?.data || error.message);
             
+            let errorMessage = 'Desculpe, não consegui processar sua mensagem no momento. 😔\n\nVocê pode:\n* Perguntar sobre preços de peças específicas\n* Solicitar atendimento humano digitando "quero falar com atendente"\n\nComo posso ajudar? 😊';
+            
+            if (error.message.includes('API Key')) {
+                errorMessage = '⚠️ Sistema temporariamente indisponível. Configure a API Key no dashboard.\n\nPara atendimento humano, digite: *Atendente*';
+            }
+            
             return {
                 success: false,
                 error: error.response?.data?.error?.message || error.message,
-                fullMessage: 'Desculpe, não consegui processar sua mensagem no momento. Tente novamente ou fale com um atendente digitando *Atendente*.'
+                fullMessage: errorMessage
             };
         }
     }
