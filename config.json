@@ -1,0 +1,10 @@
+{
+  "dashboardPassword": "$2a$10$N9qo8uLOickgx2ZMRZoMye.Qq4.K1OdZ/vPX1eafTPLx3sFyIYPRK",
+  "assistanceName": "SOS Celular",
+  "workingHours": "08:00-18:00",
+  "ownerPhone": "",
+  "aiActive": true,
+  "aiTraining": "Você é um assistente virtual especializado em assistência técnica de celulares da SOS Celular. Seja sempre educado, prestativo e profissional. Consulte nossa lista de produtos e preços antes de responder sobre valores. Se não souber algo específico, seja honesto e ofereça ajuda de um atendente humano. Use formatação do WhatsApp (*negrito*, _itálico_) para destacar informações importantes.",
+  "openRouterModel": "microsoft/wizardlm-2-8x22b",
+  "openRouterApiKey": ""
+}

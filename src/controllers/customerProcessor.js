@@ -1,15 +1,24 @@
 const Logger = require('../utils/logger');
+const ConfigService = require('../config/config');
 
 class CustomerProcessor {
     constructor(evolutionService, databaseService, openRouterService) {
         this.evolutionService = evolutionService;
         this.databaseService = databaseService;
         this.openRouterService = openRouterService;
+        this.configService = new ConfigService();
         this.logger = new Logger();
     }
 
     async processMessage(messageText, senderNumber) {
         try {
+            // Verificar se a IA está pausada globalmente
+            const config = await this.configService.getConfig();
+            if (!config.aiActive) {
+                this.logger.log(`AI is globally disabled. Ignoring message from ${senderNumber}.`);
+                return { success: true, action: 'ai_globally_disabled' };
+            }
+
             const isPaused = await this.databaseService.isPaused(senderNumber);
             if (isPaused) {
                 this.logger.log(`AI is paused for ${senderNumber}. Ignoring message.`);
@@ -72,22 +81,10 @@ class CustomerProcessor {
                 this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R$${item.price}`);
                 return { success: true, action: 'price_found', item, rawResponse: responseMessage };
             } else {
-                const similarItems = await this.databaseService.findItems(extractedItem);
-                
-                if (similarItems.length > 0) {
-                    let responseMessage = `Não tenho o preço exato para *"${extractedItem}"*, mas tenho estas opções similares:\n\n`;
-                    similarItems.slice(0, 3).forEach(similarItem => {
-                        responseMessage += `• *${similarItem.item}*: R$${similarItem.price}\n`;
-                    });
-                    responseMessage += `\nGostaria que um atendente verifique o preço específico para você?`;
-                    
-                    await this.evolutionService.sendMessage(senderNumber, responseMessage);
-                    
-                    this.logger.log(`Similar items found for ${senderNumber}: ${similarItems.length} items`);
-                    return { success: true, action: 'similar_items_found', items: similarItems, rawResponse: responseMessage };
-                } else {
-                    return await this.handleGeneralQuery(messageText, senderNumber, history);
-                }
+                const responseMessage = `No momento, não temos *"${extractedItem}"* em estoque, mas podemos fazer o pedido para você! O prazo de chegada é de 4 a 5 dias úteis. Deseja encomendar?`;
+                await this.evolutionService.sendMessage(senderNumber, responseMessage);
+                this.logger.log(`Item not found for ${senderNumber}, offered to order.`);
+                return { success: true, action: 'item_not_found_order_offered', rawResponse: responseMessage };
             }
 
         } catch (error) {

@@ -1,23 +1,38 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const ConfigService = require('../config/config');
 
 class OpenRouterService {
     constructor() {
-        this.apiKey = process.env.OPEN_ROUTER_API_KEY;
+        this.configService = new ConfigService();
         this.baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
-        this.model = 'z-ai/glm-4.5-air:free';
         this.customInstructions = this.loadCustomInstructions();
-        this.signature = `
+    }
+
+    async getConfig() {
+        const config = await this.configService.getConfig();
+        return {
+            apiKey: config.openRouterApiKey || process.env.OPEN_ROUTER_API_KEY,
+            model: config.openRouterModel || 'microsoft/wizardlm-2-8x22b',
+            aiActive: config.aiActive !== false,
+            aiTraining: config.aiTraining || "Você é um assistente de uma loja de assistência técnica de celulares. Seja prestativo, educado e direto.",
+            assistanceName: config.assistanceName || "Tech Support Bot",
+            workingHours: config.workingHours || "08:00-18:00"
+        };
+    }
+
+    getSignature(assistanceName) {
+        return `
 
 ---
-*_Inteligencia Artificial S O S Celular_*
+*_Inteligencia Artificial ${assistanceName}_*
 Para falar com um atendente digite: *Atendente*`;
     }
 
     loadCustomInstructions() {
         try {
-            const instructionsPath = path.join(__dirname, '../../instructions.txt');
+            const instructionsPath = path.join(__dirname, '../../instructions.md');
             if (fs.existsSync(instructionsPath)) {
                 return fs.readFileSync(instructionsPath, 'utf8');
             }
@@ -29,9 +44,20 @@ Para falar com um atendente digite: *Atendente*`;
 
     async generateResponse(message, context = {}) {
         try {
+            const config = await this.getConfig();
+            
+            // Verifica se a IA está ativa
+            if (!config.aiActive) {
+                return {
+                    success: false,
+                    message: 'Sistema temporariamente indisponível. Entre em contato com um atendente.',
+                    error: 'AI disabled'
+                };
+            }
+
             const { availableItems, isAdmin = false, history = [] } = context;
             
-            let systemPrompt = this.buildSystemPrompt(availableItems, isAdmin);
+            let systemPrompt = this.buildSystemPrompt(availableItems, isAdmin, config);
             
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -40,25 +66,26 @@ Para falar com um atendente digite: *Atendente*`;
             ];
 
             const response = await axios.post(this.baseUrl, {
-                model: this.model,
+                model: config.model,
                 messages: messages,
                 temperature: 0.7,
                 max_tokens: 500
             }, {
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://whatsapp-tech-support.com',
                     'X-Title': 'WhatsApp Tech Support Bot'
                 }
             });
 
-            const rawMessage = response.data.choices[0].message.content;
+            const rawMessage = response.data.choices[0].message.content.trim();
+            const signature = this.getSignature(config.assistanceName);
 
             return {
                 success: true,
                 rawMessage: rawMessage,
-                fullMessage: rawMessage + this.signature,
+                fullMessage: rawMessage + signature,
                 usage: response.data.usage
             };
 
@@ -72,8 +99,14 @@ Para falar com um atendente digite: *Atendente*`;
         }
     }
 
-    buildSystemPrompt(availableItems = [], isAdmin = false) {
-        let systemPrompt = `Você é um assistente virtual de uma assistência técnica de celulares. Seu papel é ajudar clientes a consultar preços de peças e serviços.
+    buildSystemPrompt(availableItems = [], isAdmin = false, config = {}) {
+        let systemPrompt = config.aiTraining || `Você é um assistente virtual de uma assistência técnica de celulares. Seu papel é ajudar clientes a consultar preços de peças e serviços.`;
+        
+        systemPrompt += `
+
+INFORMAÇÕES DA LOJA:
+- Nome: ${config.assistanceName || 'Tech Support Bot'}
+- Horário de Atendimento: ${config.workingHours || '08:00-18:00'}
 
 INSTRUÇÕES IMPORTANTES:
 1. **Use a formatação do WhatsApp para melhorar a legibilidade**:
@@ -134,8 +167,10 @@ Responda sempre de forma natural e humana, como se fosse um atendente real da lo
 
     async interpretIntent(message) {
         try {
+            const config = await this.getConfig();
+            
             const response = await axios.post(this.baseUrl, {
-                model: this.model,
+                model: config.model,
                 messages: [
                     {
                         role: 'system',
@@ -157,7 +192,7 @@ Retorne APENAS a classificação, sem explicações.`
                 max_tokens: 20
             }, {
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://whatsapp-tech-support.com',
                     'X-Title': 'WhatsApp Tech Support Bot'
@@ -174,8 +209,10 @@ Retorne APENAS a classificação, sem explicações.`
 
     async extractItemFromQuery(message) {
         try {
+            const config = await this.getConfig();
+            
             const response = await axios.post(this.baseUrl, {
-                model: this.model,
+                model: config.model,
                 messages: [
                     {
                         role: 'system',
@@ -197,7 +234,7 @@ Se não conseguir identificar, retorne "não identificado".`
                 max_tokens: 50
             }, {
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://whatsapp-tech-support.com',
                     'X-Title': 'WhatsApp Tech Support Bot'

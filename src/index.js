@@ -1,15 +1,43 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
 const MessageHandler = require('./controllers/messageHandler');
+const DashboardController = require('./controllers/dashboardController');
 const OpenRouterService = require('./services/openrouter');
 const Logger = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const messageHandler = new MessageHandler();
+const dashboardController = new DashboardController();
 const logger = new Logger();
 
+// Configurações de middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '../views'));
+
+// Configuração da sessão
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'dashboard-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    }
+}));
+
+// Rate limiting para login
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 5, // 5 tentativas por IP
+    message: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
+    skipSuccessfulRequests: true
+});
 
 app.use((req, res, next) => {
     const startTime = Date.now();
@@ -71,6 +99,17 @@ app.post('/test/message', async (req, res) => {
     }
 });
 
+// Rotas do Dashboard
+app.get('/dashboard/login', (req, res) => dashboardController.loginPage(req, res));
+app.post('/dashboard/login', loginLimiter, (req, res) => dashboardController.authenticate(req, res));
+app.get('/dashboard', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.dashboard(req, res));
+app.post('/dashboard/config', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateConfig(req, res));
+app.post('/dashboard/ai-config', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateAIConfig(req, res));
+app.post('/dashboard/product', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.addProduct(req, res));
+app.put('/dashboard/product', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateProduct(req, res));
+app.delete('/dashboard/product/:name', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.deleteProduct(req, res));
+app.post('/dashboard/logout', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.logout(req, res));
+
 app.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
@@ -81,7 +120,11 @@ app.get('/health', (req, res) => {
 });
 
 app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
+    if (req.path.startsWith('/dashboard')) {
+        res.redirect('/dashboard/login');
+    } else {
+        res.status(404).json({ error: 'Endpoint not found' });
+    }
 });
 
 app.use((error, req, res, next) => {
@@ -94,11 +137,9 @@ async function startServer() {
         logger.log('Starting WhatsApp Tech Support Bot...');
         
         const requiredEnvVars = [
-            'OPEN_ROUTER_API_KEY',
             'EVOLUTION_API_URL',
             'EVOLUTION_API_KEY',
-            'EVOLUTION_INSTANCE_NAME',
-            'ADMIN_PHONE_NUMBER'
+            'EVOLUTION_INSTANCE_NAME'
         ];
         
         const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);

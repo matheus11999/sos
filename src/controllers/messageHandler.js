@@ -1,8 +1,8 @@
 const EvolutionService = require('../services/evolution');
 const OpenRouterService = require('../services/openrouter');
 const DatabaseService = require('../services/database');
-const AdminProcessor = require('./adminProcessor');
 const CustomerProcessor = require('./customerProcessor');
+const ConfigService = require('../config/config');
 const Logger = require('../utils/logger');
 
 class MessageHandler {
@@ -10,9 +10,14 @@ class MessageHandler {
         this.evolutionService = new EvolutionService();
         this.openRouterService = new OpenRouterService();
         this.databaseService = new DatabaseService();
-        this.adminProcessor = new AdminProcessor(this.evolutionService, this.databaseService, this.openRouterService);
+        this.configService = new ConfigService();
         this.customerProcessor = new CustomerProcessor(this.evolutionService, this.databaseService, this.openRouterService);
         this.logger = new Logger();
+    }
+
+    async getAdminPhoneNumber() {
+        const config = await this.configService.getConfig();
+        return config.ownerPhone || process.env.ADMIN_PHONE_NUMBER;
     }
 
     async handleIncomingMessage(messageData) {
@@ -24,16 +29,13 @@ class MessageHandler {
 
             const messageText = this.evolutionService.extractMessageText(messageData);
             const senderNumber = this.evolutionService.extractSenderNumber(messageData);
-            const isFromAdmin = this.evolutionService.isFromAdmin(senderNumber);
+            const adminNumber = await this.getAdminPhoneNumber();
+            const isFromAdmin = senderNumber === adminNumber;
 
             this.logger.log(`Message received from ${senderNumber}: ${messageText}`);
 
-            let result;
-            if (isFromAdmin) {
-                result = await this.adminProcessor.processMessage(messageText, senderNumber);
-            } else {
-                result = await this.customerProcessor.processMessage(messageText, senderNumber);
-            }
+            // Todas as mensagens são processadas como cliente (sem funções admin via WhatsApp)
+            const result = await this.customerProcessor.processMessage(messageText, senderNumber);
 
             this.logger.logMessageProcessing(senderNumber, messageText, isFromAdmin, result);
             return result;
