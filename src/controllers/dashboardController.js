@@ -1,11 +1,13 @@
 const bcrypt = require('bcryptjs');
 const ConfigService = require('../config/config');
 const DatabaseService = require('../services/database');
+const SupabaseService = require('../services/supabase');
 
 class DashboardController {
     constructor() {
         this.configService = new ConfigService();
         this.databaseService = new DatabaseService();
+        this.supabaseService = new SupabaseService();
     }
 
     async loginPage(req, res) {
@@ -38,15 +40,20 @@ class DashboardController {
     async dashboard(req, res) {
         try {
             const config = await this.configService.getConfig();
-            const products = await this.databaseService.getAllItems();
+            const productsResult = await this.supabaseService.getAllProducts();
+            const brandsResult = await this.supabaseService.getAllBrands();
             const db = await this.databaseService.loadDatabase();
+            
+            const products = productsResult.success ? productsResult.data : [];
+            const brands = brandsResult.success ? brandsResult.data : [];
             
             const stats = {
                 totalProducts: products.length,
+                totalBrands: brands.length,
                 totalConversations: Object.keys(db.conversationHistory || {}).length
             };
 
-            res.render('dashboard', { config, products, stats });
+            res.render('dashboard', { config, products, brands, stats });
         } catch (error) {
             console.error('Dashboard error:', error);
             res.status(500).send('Erro interno do sistema');
@@ -100,8 +107,14 @@ class DashboardController {
 
     async addProduct(req, res) {
         try {
-            const { name, price } = req.body;
-            const result = await this.databaseService.addItem(name, parseFloat(price));
+            const { name, description, price, quantity, brandId } = req.body;
+            const result = await this.supabaseService.createProduct(
+                name, 
+                description || '', 
+                parseFloat(price), 
+                parseInt(quantity) || 0, 
+                brandId || null
+            );
             res.json(result);
         } catch (error) {
             console.error('Add product error:', error);
@@ -111,8 +124,15 @@ class DashboardController {
 
     async updateProduct(req, res) {
         try {
-            const { name, price } = req.body;
-            const result = await this.databaseService.updateItem(name, parseFloat(price));
+            const { id, name, description, price, quantity, brandId } = req.body;
+            const result = await this.supabaseService.updateProduct(
+                id,
+                name,
+                description || '',
+                parseFloat(price),
+                parseInt(quantity) || 0,
+                brandId || null
+            );
             res.json(result);
         } catch (error) {
             console.error('Update product error:', error);
@@ -122,11 +142,44 @@ class DashboardController {
 
     async deleteProduct(req, res) {
         try {
-            const { name } = req.params;
-            const result = await this.databaseService.removeItem(decodeURIComponent(name));
+            const { id } = req.params;
+            const result = await this.supabaseService.deleteProduct(id);
             res.json(result);
         } catch (error) {
             console.error('Delete product error:', error);
+            res.status(500).json({ success: false, error: 'Erro interno' });
+        }
+    }
+
+    async addBrand(req, res) {
+        try {
+            const { name, description } = req.body;
+            const result = await this.supabaseService.createBrand(name, description || '');
+            res.json(result);
+        } catch (error) {
+            console.error('Add brand error:', error);
+            res.status(500).json({ success: false, error: 'Erro interno' });
+        }
+    }
+
+    async updateBrand(req, res) {
+        try {
+            const { id, name, description } = req.body;
+            const result = await this.supabaseService.updateBrand(id, name, description || '');
+            res.json(result);
+        } catch (error) {
+            console.error('Update brand error:', error);
+            res.status(500).json({ success: false, error: 'Erro interno' });
+        }
+    }
+
+    async deleteBrand(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await this.supabaseService.deleteBrand(id);
+            res.json(result);
+        } catch (error) {
+            console.error('Delete brand error:', error);
             res.status(500).json({ success: false, error: 'Erro interno' });
         }
     }

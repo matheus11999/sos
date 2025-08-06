@@ -63,6 +63,10 @@
                 <div>Produtos</div>
             </div>
             <div class="stat-card">
+                <div class="stat-number"><%= stats.totalBrands %></div>
+                <div>Marcas</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-number"><%= stats.totalConversations %></div>
                 <div>Conversas</div>
             </div>
@@ -71,6 +75,7 @@
         <div class="tabs">
             <div class="tab-buttons">
                 <button class="tab-button active" onclick="openTab(event, 'products')">Produtos</button>
+                <button class="tab-button" onclick="openTab(event, 'brands')">Marcas</button>
                 <button class="tab-button" onclick="openTab(event, 'config')">Configurações</button>
                 <button class="tab-button" onclick="openTab(event, 'ai')">IA & OpenRouter</button>
             </div>
@@ -81,18 +86,49 @@
                     <thead>
                         <tr>
                             <th>Produto</th>
+                            <th>Descrição</th>
+                            <th>Marca</th>
                             <th>Preço</th>
+                            <th>Quantidade</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <% products.forEach(product => { %>
                         <tr>
-                            <td><%= product.item %></td>
+                            <td><%= product.name %></td>
+                            <td><%= product.description || '-' %></td>
+                            <td><%= product.brands ? product.brands.name : 'Sem marca' %></td>
                             <td>R$ <%= product.price.toFixed(2) %></td>
+                            <td><%= product.quantity %></td>
                             <td>
-                                <button class="btn btn-warning" onclick="editProduct('<%= product.item %>', <%= product.price %>)">Editar</button>
-                                <button class="btn btn-danger" onclick="deleteProduct('<%= product.item %>')">Excluir</button>
+                                <button class="btn btn-warning" onclick="editProduct('<%= product.id %>', '<%= product.name %>', '<%= product.description || '' %>', '<%= product.price %>', '<%= product.quantity %>', '<%= product.brand_id || '' %>')">Editar</button>
+                                <button class="btn btn-danger" onclick="deleteProduct('<%= product.id %>')">Excluir</button>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="brands" class="tab-content">
+                <button class="btn btn-success" onclick="openBrandModal()">Adicionar Marca</button>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Descrição</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% brands.forEach(brand => { %>
+                        <tr>
+                            <td><%= brand.name %></td>
+                            <td><%= brand.description || '-' %></td>
+                            <td>
+                                <button class="btn btn-warning" onclick="editBrand('<%= brand.id %>', '<%= brand.name %>', '<%= brand.description || '' %>')">Editar</button>
+                                <button class="btn btn-danger" onclick="deleteBrand('<%= brand.id %>')">Excluir</button>
                             </td>
                         </tr>
                         <% }) %>
@@ -158,18 +194,57 @@
     <div id="productModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeProductModal()">&times;</span>
-            <h2 id="modalTitle">Adicionar Produto</h2>
+            <h2 id="productModalTitle">Adicionar Produto</h2>
             <form id="productForm">
+                <input type="hidden" id="productId" name="productId">
                 <div class="form-group">
                     <label>Nome do Produto</label>
                     <input type="text" id="productName" name="productName" required>
                 </div>
                 <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="productDescription" name="productDescription"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Marca</label>
+                    <select id="productBrand" name="productBrand">
+                        <option value="">Selecione uma marca</option>
+                        <% brands.forEach(brand => { %>
+                        <option value="<%= brand.id %>"><%= brand.name %></option>
+                        <% }) %>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Preço (R$)</label>
                     <input type="number" id="productPrice" name="productPrice" step="0.01" min="0" required>
                 </div>
+                <div class="form-group">
+                    <label>Quantidade</label>
+                    <input type="number" id="productQuantity" name="productQuantity" min="0" value="0" required>
+                </div>
                 <button type="submit" class="btn btn-success">Salvar</button>
                 <button type="button" class="btn" onclick="closeProductModal()">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Marca -->
+    <div id="brandModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeBrandModal()">&times;</span>
+            <h2 id="brandModalTitle">Adicionar Marca</h2>
+            <form id="brandForm">
+                <input type="hidden" id="brandId" name="brandId">
+                <div class="form-group">
+                    <label>Nome da Marca</label>
+                    <input type="text" id="brandName" name="brandName" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="brandDescription" name="brandDescription"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Salvar</button>
+                <button type="button" class="btn" onclick="closeBrandModal()">Cancelar</button>
             </form>
         </div>
     </div>
@@ -188,11 +263,15 @@
             evt.currentTarget.classList.add("active");
         }
 
-        function openProductModal(name = '', price = '') {
+        function openProductModal(id = '', name = '', description = '', price = '', quantity = '', brand_id = '') {
             document.getElementById('productModal').style.display = 'block';
-            document.getElementById('modalTitle').textContent = name ? 'Editar Produto' : 'Adicionar Produto';
+            document.getElementById('productModalTitle').textContent = id ? 'Editar Produto' : 'Adicionar Produto';
+            document.getElementById('productId').value = id;
             document.getElementById('productName').value = name;
+            document.getElementById('productDescription').value = description;
             document.getElementById('productPrice').value = price;
+            document.getElementById('productQuantity').value = quantity;
+            document.getElementById('productBrand').value = brand_id;
         }
 
         function closeProductModal() {
@@ -200,13 +279,13 @@
             document.getElementById('productForm').reset();
         }
 
-        function editProduct(name, price) {
-            openProductModal(name, price);
+        function editProduct(id, name, description, price, quantity, brand_id) {
+            openProductModal(id, name, description, price, quantity, brand_id);
         }
 
-        function deleteProduct(name) {
-            if (confirm('Tem certeza que deseja excluir o produto: ' + name + '?')) {
-                fetch('/dashboard/product/' + encodeURIComponent(name), {
+        function deleteProduct(id) {
+            if (confirm('Tem certeza que deseja excluir este produto?')) {
+                fetch('/dashboard/product/' + id, {
                     method: 'DELETE'
                 }).then(() => location.reload());
             }
@@ -217,21 +296,73 @@
                 .then(() => location.href = '/dashboard/login');
         }
 
+        function openBrandModal(id = '', name = '', description = '') {
+            document.getElementById('brandModal').style.display = 'block';
+            document.getElementById('brandModalTitle').textContent = id ? 'Editar Marca' : 'Adicionar Marca';
+            document.getElementById('brandId').value = id;
+            document.getElementById('brandName').value = name;
+            document.getElementById('brandDescription').value = description;
+        }
+
+        function closeBrandModal() {
+            document.getElementById('brandModal').style.display = 'none';
+            document.getElementById('brandForm').reset();
+        }
+
+        function editBrand(id, name, description) {
+            openBrandModal(id, name, description);
+        }
+
+        function deleteBrand(id) {
+            if (confirm('Tem certeza que deseja excluir esta marca?')) {
+                fetch('/dashboard/brand/' + id, {
+                    method: 'DELETE'
+                }).then(() => location.reload());
+            }
+        }
+
         document.getElementById('productForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
             const data = {
+                id: formData.get('productId'),
                 name: formData.get('productName'),
-                price: parseFloat(formData.get('productPrice'))
+                description: formData.get('productDescription'),
+                price: parseFloat(formData.get('productPrice')),
+                quantity: parseInt(formData.get('productQuantity')),
+                brandId: formData.get('productBrand') || null
             };
 
+            const method = data.id ? 'PUT' : 'POST';
             fetch('/dashboard/product', {
-                method: 'POST',
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             }).then(response => {
                 if (response.ok) {
                     closeProductModal();
+                    location.reload();
+                }
+            });
+        });
+
+        document.getElementById('brandForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = {
+                id: formData.get('brandId'),
+                name: formData.get('brandName'),
+                description: formData.get('brandDescription')
+            };
+
+            const method = data.id ? 'PUT' : 'POST';
+            fetch('/dashboard/brand', {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (response.ok) {
+                    closeBrandModal();
                     location.reload();
                 }
             });

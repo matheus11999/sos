@@ -107,7 +107,10 @@ app.post('/dashboard/config', dashboardController.requireAuth.bind(dashboardCont
 app.post('/dashboard/ai-config', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateAIConfig(req, res));
 app.post('/dashboard/product', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.addProduct(req, res));
 app.put('/dashboard/product', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateProduct(req, res));
-app.delete('/dashboard/product/:name', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.deleteProduct(req, res));
+app.delete('/dashboard/product/:id', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.deleteProduct(req, res));
+app.post('/dashboard/brand', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.addBrand(req, res));
+app.put('/dashboard/brand', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.updateBrand(req, res));
+app.delete('/dashboard/brand/:id', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.deleteBrand(req, res));
 app.post('/dashboard/logout', dashboardController.requireAuth.bind(dashboardController), (req, res) => dashboardController.logout(req, res));
 
 app.get('/health', (req, res) => {

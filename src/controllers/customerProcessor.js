@@ -1,5 +1,6 @@
 const Logger = require('../utils/logger');
 const ConfigService = require('../config/config');
+const SupabaseService = require('../services/supabase');
 
 class CustomerProcessor {
     constructor(evolutionService, databaseService, openRouterService) {
@@ -7,6 +8,7 @@ class CustomerProcessor {
         this.databaseService = databaseService;
         this.openRouterService = openRouterService;
         this.configService = new ConfigService();
+        this.supabaseService = new SupabaseService();
         this.logger = new Logger();
     }
 
@@ -72,13 +74,16 @@ class CustomerProcessor {
                 return await this.handleGeneralQuery(messageText, senderNumber, history);
             }
 
-            const item = await this.databaseService.findItem(extractedItem);
+            const itemResult = await this.supabaseService.findProduct(extractedItem);
             
-            if (item) {
-                const responseMessage = `*${item.item}*: R$${item.price}\n\nPosso ajudar com mais alguma coisa? 😊`;
+            if (itemResult.success && itemResult.data) {
+                const item = itemResult.data;
+                const brandName = item.brands ? ` (${item.brands.name})` : '';
+                const stockInfo = item.quantity > 0 ? `\n📦 Em estoque: ${item.quantity} unidades` : '\n⚠️ Estoque esgotado';
+                const responseMessage = `*${item.name}${brandName}*: R$${item.price.toFixed(2)}${stockInfo}\n\nPosso ajudar com mais alguma coisa? 😊`;
                 await this.evolutionService.sendMessage(senderNumber, responseMessage);
                 
-                this.logger.log(`Price query resolved for ${senderNumber}: ${item.item} - R$${item.price}`);
+                this.logger.log(`Price query resolved for ${senderNumber}: ${item.name} - R$${item.price}`);
                 return { success: true, action: 'price_found', item, rawResponse: responseMessage };
             } else {
                 const responseMessage = `No momento, não temos *"${extractedItem}"* em estoque, mas podemos fazer o pedido para você! O prazo de chegada é de 4 a 5 dias úteis. Deseja encomendar?`;
@@ -141,7 +146,8 @@ class CustomerProcessor {
 
     async handleGeneralQuery(messageText, senderNumber, history) {
         try {
-            const availableItems = await this.databaseService.getAllItems();
+            const productsResult = await this.supabaseService.getAllProducts();
+            const availableItems = productsResult.success ? productsResult.data : [];
             
             const response = await this.openRouterService.generateResponse(messageText, {
                 availableItems: availableItems,

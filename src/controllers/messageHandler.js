@@ -1,6 +1,7 @@
 const EvolutionService = require('../services/evolution');
 const OpenRouterService = require('../services/openrouter');
 const DatabaseService = require('../services/database');
+const SupabaseService = require('../services/supabase');
 const CustomerProcessor = require('./customerProcessor');
 const ConfigService = require('../config/config');
 const Logger = require('../utils/logger');
@@ -10,6 +11,7 @@ class MessageHandler {
         this.evolutionService = new EvolutionService();
         this.openRouterService = new OpenRouterService();
         this.databaseService = new DatabaseService();
+        this.supabaseService = new SupabaseService();
         this.configService = new ConfigService();
         this.customerProcessor = new CustomerProcessor(this.evolutionService, this.databaseService, this.openRouterService);
         this.logger = new Logger();
