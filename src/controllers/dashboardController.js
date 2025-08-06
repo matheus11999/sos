@@ -2,12 +2,14 @@ const bcrypt = require('bcryptjs');
 const ConfigService = require('../config/config');
 const DatabaseService = require('../services/database');
 const SupabaseService = require('../services/supabase');
+const OpenRouterService = require('../services/openrouter');
 
 class DashboardController {
     constructor() {
         this.configService = new ConfigService();
         this.databaseService = new DatabaseService();
         this.supabaseService = new SupabaseService();
+        this.openRouterService = new OpenRouterService();
     }
 
     async loginPage(req, res) {
@@ -44,6 +46,9 @@ class DashboardController {
             const brandsResult = await this.supabaseService.getAllBrands();
             const db = await this.databaseService.loadDatabase();
             
+            // Buscar status do OpenRouter
+            const openRouterStatus = await this.openRouterService.getOpenRouterStatus();
+            
             const products = productsResult.success ? productsResult.data : [];
             const brands = brandsResult.success ? brandsResult.data : [];
             
@@ -53,7 +58,13 @@ class DashboardController {
                 totalConversations: Object.keys(db.conversationHistory || {}).length
             };
 
-            res.render('dashboard', { config, products, brands, stats });
+            res.render('dashboard', { 
+                config, 
+                products, 
+                brands, 
+                stats, 
+                openRouterStatus 
+            });
         } catch (error) {
             console.error('Dashboard error:', error);
             res.status(500).send('Erro interno do sistema');
@@ -85,12 +96,18 @@ class DashboardController {
 
     async updateAIConfig(req, res) {
         try {
-            const { aiActive, aiTraining, openRouterModel, openRouterApiKey } = req.body;
+            const { aiActive, aiTraining, openRouterModel, customModel, openRouterApiKey, debugNumber } = req.body;
+            
+            let finalModel = openRouterModel || "microsoft/wizardlm-2-8x22b";
+            if (openRouterModel === 'custom' && customModel && customModel.trim() !== '') {
+                finalModel = customModel.trim();
+            }
             
             const updates = {
                 aiActive: aiActive === 'true',
                 aiTraining: aiTraining || "",
-                openRouterModel: openRouterModel || "microsoft/wizardlm-2-8x22b"
+                openRouterModel: finalModel,
+                debugNumber: debugNumber ? debugNumber.trim() : ""
             };
 
             if (openRouterApiKey && openRouterApiKey.trim() !== '') {

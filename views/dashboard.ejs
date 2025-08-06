@@ -70,6 +70,18 @@
                 <div class="stat-number"><%= stats.totalConversations %></div>
                 <div>Conversas</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number" style="font-size: 1.2em; <%= openRouterStatus.success ? 'color: #28a745' : 'color: #dc3545' %>">
+                    <%= openRouterStatus.success ? '✅' : '❌' %>
+                </div>
+                <div>OpenRouter API</div>
+            </div>
+            <% if (openRouterStatus.success && openRouterStatus.balance !== null) { %>
+            <div class="stat-card">
+                <div class="stat-number" style="font-size: 1.2em;">$<%= openRouterStatus.balance.toFixed(4) %></div>
+                <div>Créditos OpenRouter</div>
+            </div>
+            <% } %>
         </div>
 
         <div class="tabs">
@@ -168,22 +180,58 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Modo Debug - Número Específico</label>
+                        <input type="text" name="debugNumber" value="<%= config.debugNumber || '' %>" placeholder="Ex: 5511999999999">
+                        <small style="color: #666;">Se preenchido, a IA só responderá para este número (útil para testes)</small>
+                    </div>
+                    <div class="form-group">
                         <label>Treinamento da IA</label>
                         <textarea name="aiTraining" rows="6"><%= config.aiTraining %></textarea>
                     </div>
                     <div class="form-group">
                         <label>Modelo OpenRouter</label>
-                        <select name="openRouterModel">
+                        <select name="openRouterModel" id="modelSelect" onchange="toggleCustomModel()">
                             <option value="microsoft/wizardlm-2-8x22b" <%= config.openRouterModel === 'microsoft/wizardlm-2-8x22b' ? 'selected' : '' %>>WizardLM-2 8x22B</option>
                             <option value="meta-llama/llama-3.1-8b-instruct:free" <%= config.openRouterModel === 'meta-llama/llama-3.1-8b-instruct:free' ? 'selected' : '' %>>Llama 3.1 8B (Grátis)</option>
                             <option value="gpt-3.5-turbo" <%= config.openRouterModel === 'gpt-3.5-turbo' ? 'selected' : '' %>>GPT-3.5 Turbo</option>
                             <option value="gpt-4o-mini" <%= config.openRouterModel === 'gpt-4o-mini' ? 'selected' : '' %>>GPT-4O Mini</option>
+                            <option value="custom" <%= !['microsoft/wizardlm-2-8x22b', 'meta-llama/llama-3.1-8b-instruct:free', 'gpt-3.5-turbo', 'gpt-4o-mini'].includes(config.openRouterModel) ? 'selected' : '' %>>Modelo Personalizado</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="customModelGroup" style="<%= ['microsoft/wizardlm-2-8x22b', 'meta-llama/llama-3.1-8b-instruct:free', 'gpt-3.5-turbo', 'gpt-4o-mini'].includes(config.openRouterModel) ? 'display: none;' : '' %>">
+                        <label>Modelo Personalizado</label>
+                        <input type="text" name="customModel" id="customModelInput" value="<%= !['microsoft/wizardlm-2-8x22b', 'meta-llama/llama-3.1-8b-instruct:free', 'gpt-3.5-turbo', 'gpt-4o-mini'].includes(config.openRouterModel) ? config.openRouterModel : '' %>" placeholder="Ex: anthropic/claude-3-sonnet">
+                        <small style="color: #666;">Digite o nome do modelo conforme a documentação do OpenRouter</small>
                     </div>
                     <div class="form-group">
                         <label>API Key OpenRouter</label>
                         <input type="password" name="openRouterApiKey" value="<%= config.openRouterApiKey %>" placeholder="Digite sua API key">
                     </div>
+                    
+                    <% if (openRouterStatus.success) { %>
+                    <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <h4 style="color: #155724; margin-bottom: 10px;">📊 Status OpenRouter</h4>
+                        <p><strong>Modelo atual:</strong> <%= openRouterStatus.model.name %></p>
+                        <% if (openRouterStatus.balance !== null) { %>
+                        <p><strong>Créditos:</strong> $<%= openRouterStatus.balance.toFixed(4) %></p>
+                        <% } %>
+                        <% if (openRouterStatus.model.context_length) { %>
+                        <p><strong>Context Length:</strong> <%= openRouterStatus.model.context_length %> tokens</p>
+                        <% } %>
+                        <% if (openRouterStatus.model.pricing) { %>
+                        <p><strong>Preço:</strong> 
+                            Prompt: $<%= (openRouterStatus.model.pricing.prompt * 1000000).toFixed(2) %>/1M tokens |
+                            Completion: $<%= (openRouterStatus.model.pricing.completion * 1000000).toFixed(2) %>/1M tokens
+                        </p>
+                        <% } %>
+                    </div>
+                    <% } else if (openRouterStatus.error) { %>
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <h4 style="color: #721c24; margin-bottom: 10px;">⚠️ Erro OpenRouter</h4>
+                        <p><%= openRouterStatus.error %></p>
+                    </div>
+                    <% } %>
+                    
                     <button type="submit" class="btn btn-primary">Salvar Configurações IA</button>
                 </form>
             </div>
@@ -318,6 +366,21 @@
                 fetch('/dashboard/brand/' + id, {
                     method: 'DELETE'
                 }).then(() => location.reload());
+            }
+        }
+
+        function toggleCustomModel() {
+            const select = document.getElementById('modelSelect');
+            const customGroup = document.getElementById('customModelGroup');
+            const customInput = document.getElementById('customModelInput');
+            
+            if (select.value === 'custom') {
+                customGroup.style.display = 'block';
+                customInput.required = true;
+            } else {
+                customGroup.style.display = 'none';
+                customInput.required = false;
+                customInput.value = '';
             }
         }
 

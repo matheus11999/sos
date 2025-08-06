@@ -21,6 +21,16 @@ class CustomerProcessor {
                 return { success: true, action: 'ai_globally_disabled' };
             }
 
+            // Verificar modo debug - se configurado, só responder para o número específico
+            if (config.debugNumber && config.debugNumber.trim() !== '') {
+                const debugNumber = config.debugNumber.trim();
+                if (senderNumber !== debugNumber) {
+                    this.logger.log(`Debug mode active. Ignoring message from ${senderNumber}. Only responding to ${debugNumber}.`);
+                    return { success: true, action: 'debug_mode_ignored' };
+                }
+                this.logger.log(`Debug mode active. Processing message from authorized number: ${senderNumber}`);
+            }
+
             const isPaused = await this.databaseService.isPaused(senderNumber);
             if (isPaused) {
                 this.logger.log(`AI is paused for ${senderNumber}. Ignoring message.`);

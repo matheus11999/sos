@@ -22,6 +22,59 @@ class OpenRouterService {
         };
     }
 
+    async getOpenRouterStatus() {
+        try {
+            const config = await this.getConfig();
+            if (!config.apiKey) {
+                return { 
+                    success: false, 
+                    error: 'API Key não configurada',
+                    balance: null,
+                    limits: null
+                };
+            }
+
+            // Verificar créditos disponíveis
+            const creditsResponse = await axios.get('https://openrouter.ai/api/v1/auth/key', {
+                headers: {
+                    'Authorization': `Bearer ${config.apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // Verificar limites do modelo
+            const modelsResponse = await axios.get('https://openrouter.ai/api/v1/models', {
+                headers: {
+                    'Authorization': `Bearer ${config.apiKey}`
+                }
+            });
+
+            const currentModel = modelsResponse.data.data.find(model => model.id === config.model);
+
+            return {
+                success: true,
+                balance: creditsResponse.data.data.credit_left,
+                limits: creditsResponse.data.data.rate_limit,
+                model: {
+                    id: config.model,
+                    name: currentModel?.name || config.model,
+                    context_length: currentModel?.context_length,
+                    pricing: currentModel?.pricing
+                },
+                usage: creditsResponse.data.data.usage || 0
+            };
+
+        } catch (error) {
+            console.error('Error getting OpenRouter status:', error.response?.data || error.message);
+            return { 
+                success: false, 
+                error: error.response?.data?.error?.message || error.message,
+                balance: null,
+                limits: null
+            };
+        }
+    }
+
     getSignature(assistanceName) {
         return `
 
@@ -50,160 +103,124 @@ Para falar com um atendente digite: *Atendente*`;
             if (!config.aiActive) {
                 return {
                     success: false,
-                    message: 'Sistema temporariamente indisponível. Entre em contato com um atendente.',
-                    error: 'AI disabled'
+                    error: 'IA está desativada nas configurações'
                 };
             }
 
-            const { availableItems, isAdmin = false, history = [] } = context;
-            
-            let systemPrompt = this.buildSystemPrompt(availableItems, isAdmin, config);
-            
+            // Preparar dados dos produtos para contexto
+            let productsContext = '';
+            if (context.availableItems && context.availableItems.length > 0) {
+                productsContext = '\n\nProdutos disponíveis na loja:\n';
+                context.availableItems.forEach(item => {
+                    const brandName = item.brands ? ` (${item.brands.name})` : '';
+                    const stockInfo = item.quantity > 0 ? ` - ${item.quantity} em estoque` : ' - Sem estoque';
+                    productsContext += `- ${item.name}${brandName}: R$${item.price.toFixed(2)}${stockInfo}\n`;
+                });
+            }
+
+            // Preparar histórico da conversa
+            let conversationHistory = [];
+            if (context.history && context.history.length > 0) {
+                conversationHistory = context.history.map(msg => ({
+                    role: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content
+                }));
+            }
+
+            const systemPrompt = `${config.aiTraining}
+
+Nome da assistência: ${config.assistanceName}
+Horário de funcionamento: ${config.workingHours}
+
+${this.customInstructions}
+${productsContext}
+
+Instruções específicas:
+- Seja sempre educado e prestativo
+- Se perguntarem sobre preços, consulte a lista de produtos
+- Se não souber uma informação, seja honesto
+- Para questões complexas, sugira falar com atendente
+- Use emojis moderadamente para ser mais amigável
+- Mantenha respostas concisas mas completas`;
+
             const messages = [
                 { role: 'system', content: systemPrompt },
-                ...history,
+                ...conversationHistory,
                 { role: 'user', content: message }
             ];
 
             const response = await axios.post(this.baseUrl, {
                 model: config.model,
                 messages: messages,
-                temperature: 0.7,
-                max_tokens: 500
+                max_tokens: 500,
+                temperature: 0.7
             }, {
                 headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
                     'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://whatsapp-tech-support.com',
-                    'X-Title': 'WhatsApp Tech Support Bot'
+                    'X-Title': `${config.assistanceName} - WhatsApp Bot`
                 }
             });
 
-            const rawMessage = response.data.choices[0].message.content.trim();
+            const aiResponse = response.data.choices[0].message.content;
             const signature = this.getSignature(config.assistanceName);
+            const fullMessage = aiResponse + signature;
 
             return {
                 success: true,
-                rawMessage: rawMessage,
-                fullMessage: rawMessage + signature,
-                usage: response.data.usage
+                response: aiResponse,
+                fullMessage: fullMessage,
+                tokensUsed: response.data.usage?.total_tokens || 0,
+                model: config.model
             };
 
         } catch (error) {
-            console.error('Error calling OpenRouter API:', error.response?.data || error.message);
+            console.error('Error generating response:', error.response?.data || error.message);
+            
             return {
                 success: false,
-                message: 'Desculpe, estou com problemas técnicos no momento. Tente novamente em alguns instantes.',
-                error: error.message
+                error: error.response?.data?.error?.message || error.message,
+                fullMessage: 'Desculpe, não consegui processar sua mensagem no momento. Tente novamente ou fale com um atendente digitando *Atendente*.'
             };
         }
-    }
-
-    buildSystemPrompt(availableItems = [], isAdmin = false, config = {}) {
-        let systemPrompt = config.aiTraining || `Você é um assistente virtual de uma assistência técnica de celulares. Seu papel é ajudar clientes a consultar preços de peças e serviços.`;
-        
-        systemPrompt += `
-
-INFORMAÇÕES DA LOJA:
-- Nome: ${config.assistanceName || 'Tech Support Bot'}
-- Horário de Atendimento: ${config.workingHours || '08:00-18:00'}
-
-INSTRUÇÕES IMPORTANTES:
-1. **Use a formatação do WhatsApp para melhorar a legibilidade**:
-   - Use asteriscos para negrito (ex: *Produto*).
-   - Use underscores para itálico (ex: _Aviso importante_).
-   - Use isso para destacar nomes de produtos, preços e informações importantes.
-2. **Use o histórico da conversa para evitar perguntas repetitivas.** Se o cliente já informou o modelo do aparelho, não pergunte novamente.
-3. Seja sempre educado, prestativo e profissional.
-4. Responda de forma clara e objetiva em português brasileiro.
-5. Se o cliente perguntar sobre preços, consulte a lista de itens disponíveis.
-6. Se não encontrar o item solicitado, sugira itens similares ou ofereça ajuda de um atendente.
-7. Se o cliente quiser falar com um atendente, seja receptivo e confirme que será providenciado.
-
-`;
-
-        if (availableItems && availableItems.length > 0) {
-            systemPrompt += `ITENS E PREÇOS DISPONÍVEIS:
-`;
-            availableItems.forEach(item => {
-                systemPrompt += `- *${item.item}*: R$${item.price}\n`;
-            });
-            systemPrompt += '\n';
-        }
-
-        if (isAdmin) {
-            systemPrompt += `COMANDOS ADMINISTRATIVOS (apenas para admin):
-- "Adicionar [nome do item] R$[preço]" - para adicionar um novo item
-- "Editar [nome do item] R$[novo preço]" - para alterar preço
-- "Remover [nome do item]" - para remover um item
-- "Listar itens" - para ver todos os itens
-
-`;
-        }
-
-        // Adicionar instruções personalizadas se existirem
-        if (this.customInstructions) {
-            systemPrompt += `
-INSTRUÇÕES PERSONALIZADAS DA LOJA:
-${this.customInstructions}
-
-`;
-        }
-
-        systemPrompt += `EXEMPLOS DE INTERAÇÃO:
-Cliente: "Qual o preço da frontal do A13?"
-Você: "O valor para a *tela frontal do Galaxy A13* é de *R$250,00*. Posso ajudar com mais alguma coisa? 😊"
-
-Cliente: "Quero falar com um atendente"
-Você: "Claro! Vou notificar um atendente para entrar em contato com você. Aguarde um momento, por favor."
-
-Cliente: "Quanto custa para trocar a bateria do J7?"
-Você: "Não tenho o preço específico para a *bateria do J7*, mas temos a *bateria do J8* por *R$100*. Gostaria que um atendente verificasse o preço exato para o *J7*?"
-
-Responda sempre de forma natural e humana, como se fosse um atendente real da loja, usando a formatação para destacar as informações.`;
-
-        return systemPrompt;
     }
 
     async interpretIntent(message) {
         try {
-            const config = await this.getConfig();
+            const lowerMessage = message.toLowerCase();
             
-            const response = await axios.post(this.baseUrl, {
-                model: config.model,
-                messages: [
-                    {
-                        role: 'system',
-                        content: `Você é um classificador de intenções para um sistema de atendimento. Analise a mensagem do usuário e retorne APENAS uma das opções:
-- "price_query" - se o usuário está perguntando sobre preço de peça ou serviço
-- "human_support" - se o usuário quer falar com atendente humano
-- "greeting" - se é uma saudação
-- "admin_command" - se parece ser um comando administrativo (adicionar, editar, remover, listar)
-- "other" - para outras situações
+            // Verificar se é pedido de atendimento humano
+            if (lowerMessage.includes('atendente') || 
+                lowerMessage.includes('humano') || 
+                lowerMessage.includes('pessoa') ||
+                lowerMessage.includes('funcionário')) {
+                return 'human_support';
+            }
 
-Retorne APENAS a classificação, sem explicações.`
-                    },
-                    {
-                        role: 'user',
-                        content: message
-                    }
-                ],
-                temperature: 0.1,
-                max_tokens: 20
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${config.apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://whatsapp-tech-support.com',
-                    'X-Title': 'WhatsApp Tech Support Bot'
-                }
-            });
+            // Verificar se é saudação
+            if (lowerMessage.includes('oi') || 
+                lowerMessage.includes('olá') || 
+                lowerMessage.includes('bom dia') ||
+                lowerMessage.includes('boa tarde') ||
+                lowerMessage.includes('boa noite') ||
+                lowerMessage.includes('hey') ||
+                lowerMessage.includes('e aí')) {
+                return 'greeting';
+            }
 
-            return response.data.choices[0].message.content.trim().toLowerCase();
+            // Verificar se é consulta de preço
+            if (lowerMessage.includes('preço') || 
+                lowerMessage.includes('valor') || 
+                lowerMessage.includes('custa') ||
+                lowerMessage.includes('quanto') ||
+                lowerMessage.includes('r$')) {
+                return 'price_query';
+            }
 
+            return 'general_query';
         } catch (error) {
             console.error('Error interpreting intent:', error);
-            return 'other';
+            return 'general_query';
         }
     }
 
@@ -211,33 +228,35 @@ Retorne APENAS a classificação, sem explicações.`
         try {
             const config = await this.getConfig();
             
+            if (!config.apiKey) {
+                return 'não identificado';
+            }
+
+            const systemPrompt = `Você deve extrair APENAS o nome do produto que o cliente está perguntando sobre. 
+
+Regras:
+- Responda APENAS com o nome do produto (sem preços, sem explicações)
+- Se não conseguir identificar um produto específico, responda: "não identificado"
+- Produtos comuns: iPhone, Samsung Galaxy, Xiaomi, Motorola, etc.
+
+Exemplos:
+"quanto custa o iPhone 15?" -> iPhone 15
+"preço do galaxy s24" -> Galaxy S24
+"valor da tela do motorola" -> não identificado (muito genérico)
+"oi, tudo bem?" -> não identificado`;
+
             const response = await axios.post(this.baseUrl, {
                 model: config.model,
                 messages: [
-                    {
-                        role: 'system',
-                        content: `Extraia APENAS o nome da peça ou serviço mencionado na mensagem. Retorne de forma limpa, sem "do", "da", "de" desnecessários. 
-
-Exemplos:
-"Qual o preço da frontal do A13?" -> "frontal A13"
-"Quanto custa bateria J8?" -> "bateria J8" 
-"Preço troca conector carga" -> "troca conector carga"
-
-Se não conseguir identificar, retorne "não identificado".`
-                    },
-                    {
-                        role: 'user',
-                        content: message
-                    }
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: message }
                 ],
-                temperature: 0.1,
-                max_tokens: 50
+                max_tokens: 50,
+                temperature: 0.3
             }, {
                 headers: {
                     'Authorization': `Bearer ${config.apiKey}`,
-                    'Content-Type': 'application/json',
-                    'HTTP-Referer': 'https://whatsapp-tech-support.com',
-                    'X-Title': 'WhatsApp Tech Support Bot'
+                    'Content-Type': 'application/json'
                 }
             });
 

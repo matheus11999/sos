@@ -182,9 +182,15 @@ class EvolutionService {
         if (messageData && messageData.message && messageData.key) {
             const message = messageData.message;
             const remoteJid = messageData.key?.remoteJid;
+            const fromMe = messageData.key?.fromMe;
             
             // Ignorar mensagens de grupo
             if (remoteJid && remoteJid.includes('@g.us')) {
+                return false;
+            }
+            
+            // Ignorar mensagens enviadas pelo próprio bot
+            if (fromMe === true) {
                 return false;
             }
             
@@ -196,9 +202,15 @@ class EvolutionService {
         if (messageData && messageData.data && messageData.data.message) {
             const message = messageData.data.message;
             const remoteJid = messageData.data.key?.remoteJid;
+            const fromMe = messageData.data.key?.fromMe;
             
             // Ignorar mensagens de grupo
             if (remoteJid && remoteJid.includes('@g.us')) {
+                return false;
+            }
+            
+            // Ignorar mensagens enviadas pelo próprio bot
+            if (fromMe === true) {
                 return false;
             }
             
