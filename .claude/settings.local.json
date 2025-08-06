@@ -14,7 +14,8 @@
       "mcp__supabase__get_project_url",
       "mcp__supabase__get_anon_key",
       "mcp__supabase__execute_sql",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

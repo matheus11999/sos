@@ -47,7 +47,18 @@ class DashboardController {
             const db = await this.databaseService.loadDatabase();
             
             // Buscar status do OpenRouter
-            const openRouterStatus = await this.openRouterService.getOpenRouterStatus();
+            let openRouterStatus;
+            try {
+                openRouterStatus = await this.openRouterService.getOpenRouterStatus();
+            } catch (error) {
+                console.error('Error getting OpenRouter status:', error);
+                openRouterStatus = { 
+                    success: false, 
+                    error: 'Erro ao verificar status',
+                    balance: null,
+                    limits: null
+                };
+            }
             
             const products = productsResult.success ? productsResult.data : [];
             const brands = brandsResult.success ? brandsResult.data : [];

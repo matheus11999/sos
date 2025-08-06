@@ -71,12 +71,12 @@
                 <div>Conversas</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number" style="font-size: 1.2em; <%= openRouterStatus.success ? 'color: #28a745' : 'color: #dc3545' %>">
-                    <%= openRouterStatus.success ? '✅' : '❌' %>
+                <div class="stat-number" style="font-size: 1.2em; <%= (openRouterStatus && openRouterStatus.success) ? 'color: #28a745' : 'color: #dc3545' %>">
+                    <%= (openRouterStatus && openRouterStatus.success) ? '✅' : '❌' %>
                 </div>
                 <div>OpenRouter API</div>
             </div>
-            <% if (openRouterStatus.success && openRouterStatus.balance !== null) { %>
+            <% if (openRouterStatus && openRouterStatus.success && openRouterStatus.balance !== null && typeof openRouterStatus.balance === 'number') { %>
             <div class="stat-card">
                 <div class="stat-number" style="font-size: 1.2em;">$<%= openRouterStatus.balance.toFixed(4) %></div>
                 <div>Créditos OpenRouter</div>
@@ -208,24 +208,24 @@
                         <input type="password" name="openRouterApiKey" value="<%= config.openRouterApiKey %>" placeholder="Digite sua API key">
                     </div>
                     
-                    <% if (openRouterStatus.success) { %>
+                    <% if (openRouterStatus && openRouterStatus.success) { %>
                     <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0;">
                         <h4 style="color: #155724; margin-bottom: 10px;">📊 Status OpenRouter</h4>
-                        <p><strong>Modelo atual:</strong> <%= openRouterStatus.model.name %></p>
-                        <% if (openRouterStatus.balance !== null) { %>
+                        <p><strong>Modelo atual:</strong> <%= openRouterStatus.model ? openRouterStatus.model.name : config.openRouterModel %></p>
+                        <% if (openRouterStatus.balance !== null && typeof openRouterStatus.balance === 'number') { %>
                         <p><strong>Créditos:</strong> $<%= openRouterStatus.balance.toFixed(4) %></p>
                         <% } %>
-                        <% if (openRouterStatus.model.context_length) { %>
+                        <% if (openRouterStatus.model && openRouterStatus.model.context_length) { %>
                         <p><strong>Context Length:</strong> <%= openRouterStatus.model.context_length %> tokens</p>
                         <% } %>
-                        <% if (openRouterStatus.model.pricing) { %>
+                        <% if (openRouterStatus.model && openRouterStatus.model.pricing) { %>
                         <p><strong>Preço:</strong> 
                             Prompt: $<%= (openRouterStatus.model.pricing.prompt * 1000000).toFixed(2) %>/1M tokens |
                             Completion: $<%= (openRouterStatus.model.pricing.completion * 1000000).toFixed(2) %>/1M tokens
                         </p>
                         <% } %>
                     </div>
-                    <% } else if (openRouterStatus.error) { %>
+                    <% } else if (openRouterStatus && openRouterStatus.error) { %>
                     <div style="background: #f8d7da; padding: 15px; border-radius: 5px; margin: 15px 0;">
                         <h4 style="color: #721c24; margin-bottom: 10px;">⚠️ Erro OpenRouter</h4>
                         <p><%= openRouterStatus.error %></p>
